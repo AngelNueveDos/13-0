@@ -1,0 +1,94 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background:
+    radial-gradient(120% 80% at 50% -10%, #13294a 0%, rgba(19, 41, 74, 0) 55%),
+    linear-gradient(180deg, #0a1628 0%, #060e1c 100%);
+  background-attachment: fixed;
+  color: #f4f1e8;
+  font-family: 'Cormorant Garamond', serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Elegant thin scrollbar */
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+*::-webkit-scrollbar-thumb {
+  background: rgba(201, 168, 76, 0.25);
+  border-radius: 999px;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: rgba(201, 168, 76, 0.45);
+}
+
+@layer components {
+  /* Gold CTA with relief */
+  .btn-gold {
+    @apply relative inline-flex items-center justify-center gap-2 rounded-full px-8 py-3
+      font-display text-base font-semibold tracking-wide text-navy-deep
+      transition-all duration-300 ease-out;
+    background: linear-gradient(180deg, #e2cd86 0%, #c9a84c 55%, #ab8d3c 100%);
+    box-shadow:
+      0 6px 22px -6px rgba(201, 168, 76, 0.55),
+      inset 0 1px 0 rgba(255, 255, 255, 0.4);
+  }
+  .btn-gold:hover {
+    transform: translateY(-2px);
+    box-shadow:
+      0 14px 40px -10px rgba(201, 168, 76, 0.65),
+      inset 0 1px 0 rgba(255, 255, 255, 0.5);
+  }
+  .btn-gold:active {
+    transform: translateY(0);
+  }
+  .btn-gold:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+  }
+
+  .btn-ghost {
+    @apply inline-flex items-center justify-center gap-2 rounded-full border border-gold/30
+      px-6 py-2.5 font-display text-sm tracking-wide text-gold/90
+      transition-all duration-300 hover:border-gold/70 hover:text-gold hover:-translate-y-0.5;
+  }
+
+  .panel {
+    @apply rounded-2xl border border-white/5 bg-navy-800/60 backdrop-blur-sm;
+    box-shadow: 0 8px 30px -12px rgba(0, 0, 0, 0.6);
+  }
+
+  .eyebrow {
+    @apply font-display text-[0.7rem] uppercase tracking-[0.42em] text-gold/70;
+  }
+}
+
+/* Subtle grass stripes on the pitch container */
+.grass-stripes {
+  background-image: repeating-linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.018) 0px,
+    rgba(255, 255, 255, 0.018) 9%,
+    rgba(255, 255, 255, 0) 9%,
+    rgba(255, 255, 255, 0) 18%
+  );
+}
