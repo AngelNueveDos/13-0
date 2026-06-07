@@ -1,8 +1,10 @@
 import { useMemo, useState } from 'react'
+import { useI18n } from '../i18n'
 
 const ORDER = ['GK', 'CB', 'SW', 'LB', 'RB', 'LWB', 'RWB', 'CDM', 'CM', 'CAM', 'LM', 'RM', 'LW', 'RW', 'CF', 'ST']
 
 export default function DraftList({ club, edition, players, armedName, canPlace, onPick }) {
+  const { t } = useI18n()
   const [filter, setFilter] = useState('ALL')
   const [query, setQuery] = useState('')
 
@@ -18,7 +20,6 @@ export default function DraftList({ club, edition, players, armedName, canPlace,
       const q = query.trim().toLowerCase()
       list = list.filter((p) => p.name.toLowerCase().includes(q))
     }
-    // pickable first, then by rating
     return [...list].sort((a, b) => Number(canPlace(b)) - Number(canPlace(a)) || b.rating - a.rating)
   }, [players, filter, query, canPlace])
 
@@ -27,14 +28,14 @@ export default function DraftList({ club, edition, players, armedName, canPlace,
       <div className="space-y-2 border-b border-white/5 px-4 py-3">
         <div className="flex items-center justify-between gap-2">
           <div className="min-w-0">
-            <p className="eyebrow truncate">Drawn · {club}</p>
-            <p className="font-display text-sm text-bluegray">{edition}</p>
+            <p className="eyebrow truncate">{t('list.drawn')} · {club}</p>
+            <p className="font-display text-base text-bluegray">{edition}</p>
           </div>
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search…"
-            className="w-24 rounded-full border border-white/10 bg-navy-deep/60 px-3 py-1 font-body text-sm text-cream placeholder:text-bluegray/50 focus:border-gold/50 focus:outline-none"
+            placeholder={t('list.search')}
+            className="w-28 rounded-full border border-white/10 bg-navy-deep/60 px-3 py-1.5 font-body text-base text-cream placeholder:text-bluegray/50 focus:border-gold/50 focus:outline-none"
           />
         </div>
         <div className="flex flex-wrap gap-1.5">
@@ -43,7 +44,7 @@ export default function DraftList({ club, edition, players, armedName, canPlace,
               key={c}
               onClick={() => setFilter(c)}
               className={[
-                'rounded-full px-2.5 py-1 font-display text-xs tracking-wide transition-colors',
+                'rounded-full px-2.5 py-1 font-display text-sm tracking-wide transition-colors',
                 filter === c ? 'bg-gold text-navy-deep' : 'border border-white/10 text-bluegray hover:border-gold/40 hover:text-gold',
               ].join(' ')}
             >
@@ -63,7 +64,7 @@ export default function DraftList({ club, edition, players, armedName, canPlace,
                 disabled={!placeable}
                 onClick={() => onPick(p)}
                 className={[
-                  'flex w-full items-center gap-3 rounded-xl border px-3 py-2 text-left transition-all duration-200',
+                  'flex w-full items-center gap-3 rounded-xl border px-3 py-2.5 text-left transition-all duration-200',
                   armed
                     ? 'border-gold bg-gold/10 shadow-gold'
                     : placeable
@@ -71,18 +72,19 @@ export default function DraftList({ club, edition, players, armedName, canPlace,
                       : 'cursor-not-allowed border-white/5 opacity-30',
                 ].join(' ')}
               >
-                <span className="flex h-8 w-10 shrink-0 items-center justify-center rounded-lg bg-gold font-display text-sm font-bold text-navy-deep">
+                <span className="flex h-9 w-11 shrink-0 items-center justify-center rounded-lg bg-gold font-display text-base font-bold text-navy-deep">
                   {p.rating}
                 </span>
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate font-display text-base leading-tight text-cream">{p.name}</span>
-                  <span className="block text-xs text-bluegray">{p.positions.join(' · ')}</span>
+                  <span className="block truncate font-display text-lg leading-tight text-cream">{p.name}</span>
+                  <span className="block text-sm text-bluegray">{p.positions.join(' · ')}</span>
                 </span>
-                {armed && <span className="shrink-0 font-display text-[0.62rem] uppercase tracking-wider text-gold">Placing…</span>}
+                {armed && <span className="shrink-0 font-display text-[0.66rem] uppercase tracking-wider text-gold">●</span>}
               </button>
             </li>
           )
         })}
+        {visible.length === 0 && <li className="px-2 py-6 text-center text-bluegray">{t('list.noMatch')}</li>}
       </ul>
     </div>
   )

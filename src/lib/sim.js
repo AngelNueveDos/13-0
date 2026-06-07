@@ -230,6 +230,7 @@ function runTie(stage, userXI, userStrength, opp, firstLegHome) {
   if (aggFor !== aggAgainst) { advanced = aggFor > aggAgainst; decidedOn = 'aggregate' }
   else if (userAway !== oppAway) { advanced = userAway > oppAway; decidedOn = 'away goals' }
   else { const s = shootout(userStrength, opp.strength); advanced = s.winnerA; decidedOn = 'penalties'; pens = { user: s.a, opp: s.b } }
+  if (pens) matches[matches.length - 1].pens = pens // show the shootout on the deciding leg
   return { matches, aggFor, aggAgainst, advanced, decidedOn, pens }
 }
 
@@ -324,12 +325,15 @@ export function runTournament(userTeam, userXI, pool, options = {}) {
   }
 
   const reachedFinal = ties.some((t) => t.stage === 'FINAL')
-  let verdict
-  if (champion) verdict = 'Champions of Europe'
-  else if (reachedFinal) verdict = 'Runners-up'
-  else if (exitRound === 'group stage') verdict = 'Out in the group stage'
-  else if (exitRound === 'league phase') verdict = 'Out in the league phase'
-  else verdict = `Out in the ${exitRound}`
+  let verdict, outcome
+  if (champion) { verdict = 'Champions of Europe'; outcome = 'CHAMPION' }
+  else if (reachedFinal) { verdict = 'Runners-up'; outcome = 'RUNNER_UP' }
+  else if (exitRound === 'group stage') { verdict = 'Out in the group stage'; outcome = 'OUT_GROUP' }
+  else if (exitRound === 'league phase') { verdict = 'Out in the league phase'; outcome = 'OUT_LEAGUE' }
+  else if (exitRound === 'play-off round') { verdict = 'Out in the play-off round'; outcome = 'OUT_PLAYOFF' }
+  else if (exitRound === 'round of 16') { verdict = 'Out in the round of 16'; outcome = 'OUT_R16' }
+  else if (exitRound === 'quarters') { verdict = 'Out in the quarter-finals'; outcome = 'OUT_QF' }
+  else { verdict = 'Out in the semi-finals'; outcome = 'OUT_SF' }
 
   const cleanSheets = matches.filter((m) => m.ga === 0).length
   const scorerTally = new Map()
@@ -337,5 +341,5 @@ export function runTournament(userTeam, userXI, pool, options = {}) {
   let topScorer = null
   for (const [name, goals] of scorerTally) if (!topScorer || goals > topScorer.goals) topScorer = { name, goals }
 
-  return { format, userStrength, standings, matches, ties, champion, exitRound: champion ? null : exitRound, verdict, totals, cleanSheets, topScorer }
+  return { format, userStrength, standings, matches, ties, champion, exitRound: champion ? null : exitRound, verdict, outcome, totals, cleanSheets, topScorer }
 }
