@@ -23,7 +23,15 @@ npm run build    # production build → dist/
 
 ## Deploy on Vercel
 
-Framework preset **Vite** · build `npm run build` · output `dist`. No env vars.
+A `vercel.json` is included (framework **Vite**, build `npm run build`, output
+`dist`, SPA fallback). To get a live URL:
+
+1. On [vercel.com](https://vercel.com) → **Add New… → Project**.
+2. Import the GitHub repo `AngelNueveDos/13-0`.
+3. Vercel auto-detects the config — just click **Deploy**. No env vars.
+
+After the first import, **every push redeploys automatically**: pushes to a
+branch create a Preview URL, pushes to the default branch update Production.
 
 ## How it works
 
