@@ -1,21 +1,20 @@
-import { useEffect, useMemo, useState } from 'react'
+import { Fragment, useEffect, useMemo, useState } from 'react'
 
 const PHASES = [
-  'Seeding the group draw…',
+  'Seeding the draw…',
   'Matchday football under the anthem…',
   'Standings taking shape…',
   'Into the knockout nights…',
   'Final whistle approaching…',
 ]
 
-const fmtScorers = (arr) =>
-  arr.map((s) => (s.count > 1 ? `${s.name} (${s.count})` : s.name)).join(', ')
+const fmtScorers = (arr) => arr.map((s) => (s.count > 1 ? `${s.name} (${s.count})` : s.name)).join(', ')
 
 const LEG_LABEL = { 1: '1st leg', 2: '2nd leg' }
 const VENUE = {
-  H: { label: 'Home', cls: 'text-green-300/90' },
-  A: { label: 'Away', cls: 'text-sky-300/90' },
-  N: { label: 'Neutral', cls: 'text-gold/90' },
+  H: { label: 'Home', cls: 'text-green-300' },
+  A: { label: 'Away', cls: 'text-sky-300' },
+  N: { label: 'Neutral', cls: 'text-gold' },
 }
 
 function tieNote(tie) {
@@ -32,49 +31,49 @@ function MatchRow({ m, isFinal, note }) {
   const win = m.result === 'W'
   const draw = m.result === 'D'
   return (
-    <div className={`px-4 py-3 ${isFinal ? 'border-l-2 border-gold' : ''}`}>
+    <div className={`px-4 py-3.5 ${isFinal ? 'border-l-2 border-gold' : ''}`}>
       <div className="flex items-center gap-3">
-        <div className="w-20 shrink-0">
-          <p className="font-display text-[0.6rem] uppercase leading-tight tracking-[0.2em] text-bluegray">{m.stage}</p>
-          {m.leg && <p className="text-[0.6rem] uppercase tracking-wider text-bluegray/60">{LEG_LABEL[m.leg]}</p>}
-          <p className={`text-[0.6rem] font-semibold uppercase tracking-wider ${VENUE[m.venue].cls}`}>{VENUE[m.venue].label}</p>
+        <div className="w-24 shrink-0">
+          <p className="font-display text-sm font-semibold uppercase leading-tight tracking-[0.15em] text-gold/90">{m.stage}</p>
+          {m.leg && <p className="text-[0.7rem] uppercase tracking-wider text-bluegray">{LEG_LABEL[m.leg]}</p>}
+          <p className={`text-xs font-bold uppercase tracking-wider ${VENUE[m.venue].cls}`}>{VENUE[m.venue].label}</p>
         </div>
         <div className="min-w-0 flex-1">
-          <p className="truncate font-display text-lg text-cream">
-            <span className="mr-1 text-xs uppercase tracking-wider text-bluegray">vs {m.opponent.code}</span>
+          <p className="truncate font-display text-xl text-cream">
+            <span className="mr-1 text-sm uppercase tracking-wider text-bluegray">vs {m.opponent.code}</span>
             {m.opponent.club} <span className="text-bluegray/70">{m.opponent.edition}</span>
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-2">
-          <span className={`font-display text-2xl tabular-nums ${win ? 'text-green-300' : draw ? 'text-cream' : 'text-red-300/80'}`}>
+          <span className={`font-display text-3xl font-semibold tabular-nums ${win ? 'text-green-300' : draw ? 'text-cream' : 'text-red-300'}`}>
             {m.gf}<span className="mx-1 text-bluegray">–</span>{m.ga}
           </span>
-          <span className={`w-4 text-center font-display text-lg ${win ? 'text-green-300' : draw ? 'text-bluegray' : 'text-red-300/80'}`}>
+          <span className={`w-5 text-center font-display text-xl ${win ? 'text-green-300' : draw ? 'text-bluegray' : 'text-red-300'}`}>
             {win ? '✓' : draw ? '–' : '✗'}
           </span>
         </div>
       </div>
 
       {(m.scorers.length > 0 || m.conceded.length > 0) && (
-        <p className="mt-1 pl-[5.75rem] font-body text-sm leading-snug">
+        <p className="mt-1.5 pl-[6.75rem] text-base leading-snug sm:text-lg">
           {m.scorers.length > 0 && (
-            <span className="text-cream/90">
-              <span className="text-[0.62rem] uppercase tracking-wider text-bluegray">Goals </span>
-              {fmtScorers(m.scorers)}
+            <span>
+              <span className="font-display text-xs font-semibold uppercase tracking-wider text-green-300/90">Goals </span>
+              <span className="text-cream">{fmtScorers(m.scorers)}</span>
             </span>
           )}
           {m.conceded.length > 0 && (
-            <span className="text-bluegray">
-              {m.scorers.length > 0 && <span className="px-1.5 text-bluegray/40">·</span>}
-              <span className="text-[0.62rem] uppercase tracking-wider text-bluegray/70">Conceded </span>
-              {fmtScorers(m.conceded)}
+            <span>
+              {m.scorers.length > 0 && <span className="px-2 text-bluegray/40">·</span>}
+              <span className="font-display text-xs font-semibold uppercase tracking-wider text-red-300/80">Conceded </span>
+              <span className="text-bluegray">{fmtScorers(m.conceded)}</span>
             </span>
           )}
         </p>
       )}
 
       {note && (
-        <p className={`mt-1.5 pl-[5.75rem] font-display text-xs uppercase tracking-wider ${note.advanced ? 'text-gold' : 'text-red-300/80'}`}>
+        <p className={`mt-2 pl-[6.75rem] font-display text-sm font-semibold uppercase tracking-wider ${note.advanced ? 'text-gold' : 'text-red-300'}`}>
           {note.word}{note.how}
         </p>
       )}
@@ -82,39 +81,80 @@ function MatchRow({ m, isFinal, note }) {
   )
 }
 
-function Standings({ rows, userClub }) {
+function Standings({ standings, userClub }) {
+  const { mode, rows } = standings
+  const cuts = useMemo(() => {
+    if (mode === 'league') {
+      return {
+        [standings.directCount]: 'Round of 16 ▲',
+        [standings.playoffMax]: 'Knockout play-off ▲ · eliminated ▼',
+      }
+    }
+    return { 2: 'Knockouts ▲' }
+  }, [mode, standings])
+
+  const tierClass = (rank) => {
+    if (mode === 'league') {
+      if (rank <= standings.directCount) return 'text-gold'
+      if (rank <= standings.playoffMax) return 'text-cream/90'
+      return 'text-bluegray/60'
+    }
+    return rank <= 2 ? 'text-gold' : 'text-bluegray'
+  }
+
   return (
     <div className="panel overflow-hidden">
-      <div className="border-b border-white/5 px-4 py-2.5"><p className="eyebrow">Group stage · final table</p></div>
-      <table className="w-full text-left font-body">
-        <thead>
-          <tr className="text-[0.7rem] uppercase tracking-wider text-bluegray">
-            <th className="px-3 py-2 font-normal">#</th><th className="px-1 py-2 font-normal">Club</th>
-            <th className="px-2 py-2 text-center font-normal">P</th><th className="px-1 py-2 text-center font-normal">W</th>
-            <th className="px-1 py-2 text-center font-normal">D</th><th className="px-1 py-2 text-center font-normal">L</th>
-            <th className="px-2 py-2 text-center font-normal">GD</th><th className="px-2 py-2 text-center font-normal">Pts</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((r, i) => {
-            const isUser = r.club === userClub
-            return (
-              <tr key={r.club + r.edition} className={`border-t border-white/5 text-lg ${isUser ? 'bg-gold/10' : ''}`}>
-                <td className="px-3 py-2"><span className={i < 2 ? 'text-gold' : 'text-bluegray'}>{i + 1}</span></td>
-                <td className="px-1 py-2"><span className={`font-display ${isUser ? 'text-gold' : 'text-cream/90'}`}>{r.club}</span></td>
-                <td className="px-2 py-2 text-center text-bluegray">{r.P}</td>
-                <td className="px-1 py-2 text-center text-bluegray">{r.W}</td>
-                <td className="px-1 py-2 text-center text-bluegray">{r.D}</td>
-                <td className="px-1 py-2 text-center text-bluegray">{r.L}</td>
-                <td className="px-2 py-2 text-center text-bluegray">{r.GF - r.GA >= 0 ? '+' : ''}{r.GF - r.GA}</td>
-                <td className="px-2 py-2 text-center font-display text-cream">{r.Pts}</td>
-              </tr>
-            )
-          })}
-        </tbody>
-      </table>
+      <div className="border-b border-white/5 px-4 py-2.5">
+        <p className="eyebrow">{mode === 'league' ? `League phase · ${rows.length}-team standings` : 'Group stage · final table'}</p>
+      </div>
+      <div className="max-h-[30rem] overflow-y-auto">
+        <table className="w-full text-left font-body">
+          <thead className="sticky top-0 bg-navy-800/95 backdrop-blur">
+            <tr className="text-[0.7rem] uppercase tracking-wider text-bluegray">
+              <th className="px-3 py-2 font-normal">#</th><th className="px-1 py-2 font-normal">Club</th>
+              <th className="px-2 py-2 text-center font-normal">P</th><th className="px-1 py-2 text-center font-normal">W</th>
+              <th className="px-1 py-2 text-center font-normal">D</th><th className="px-1 py-2 text-center font-normal">L</th>
+              <th className="px-2 py-2 text-center font-normal">GD</th><th className="px-2 py-2 text-center font-normal">Pts</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r, i) => {
+              const rank = i + 1
+              const isUser = r.club === userClub
+              return (
+                <Fragment key={r.club + r.edition}>
+                  <tr className={`border-t border-white/5 text-lg ${isUser ? 'bg-gold/10' : ''}`}>
+                    <td className="px-3 py-2"><span className={tierClass(rank)}>{rank}</span></td>
+                    <td className="px-1 py-2"><span className={`font-display ${isUser ? 'text-gold' : 'text-cream/90'}`}>{r.club}</span></td>
+                    <td className="px-2 py-2 text-center text-bluegray">{r.P}</td>
+                    <td className="px-1 py-2 text-center text-bluegray">{r.W}</td>
+                    <td className="px-1 py-2 text-center text-bluegray">{r.D}</td>
+                    <td className="px-1 py-2 text-center text-bluegray">{r.L}</td>
+                    <td className="px-2 py-2 text-center text-bluegray">{r.GF - r.GA >= 0 ? '+' : ''}{r.GF - r.GA}</td>
+                    <td className="px-2 py-2 text-center font-display text-cream">{r.Pts}</td>
+                  </tr>
+                  {cuts[rank] && (
+                    <tr>
+                      <td colSpan={8} className="bg-navy-deep/40 px-3 py-1 text-center font-display text-[0.65rem] uppercase tracking-[0.25em] text-gold/70">
+                        {cuts[rank]}
+                      </td>
+                    </tr>
+                  )}
+                </Fragment>
+              )
+            })}
+          </tbody>
+        </table>
+      </div>
     </div>
   )
+}
+
+function ordinal(n) {
+  if (n === 1) return 'st'
+  if (n === 2) return 'nd'
+  if (n === 3) return 'rd'
+  return 'th'
 }
 
 export default function SimulationScreen({ team, result, onReplay, onEditXI }) {
@@ -128,14 +168,13 @@ export default function SimulationScreen({ team, result, onReplay, onEditXI }) {
     return () => { clearInterval(stepper); clearTimeout(done) }
   }, [result])
 
-  const { totals, group, matches, ties, champion, verdict, cleanSheets, topScorer } = result
+  const { totals, standings, matches, ties, champion, verdict, cleanSheets, topScorer } = result
 
-  // Attach each knockout tie's outcome note to the last match of that stage.
   const noteByMatchIndex = useMemo(() => {
     const tieByStage = {}
     ties.forEach((t) => (tieByStage[t.stage] = t))
     const lastIdx = {}
-    matches.forEach((m, i) => { if (m.stage !== 'GROUPS') lastIdx[m.stage] = i })
+    matches.forEach((m, i) => { if (m.stage !== 'GROUPS' && m.stage !== 'LEAGUE') lastIdx[m.stage] = i })
     const map = {}
     Object.entries(lastIdx).forEach(([stage, idx]) => (map[idx] = tieNote(tieByStage[stage])))
     return map
@@ -155,6 +194,17 @@ export default function SimulationScreen({ team, result, onReplay, onEditXI }) {
     )
   }
 
+  const exitNote = (() => {
+    if (standings.mode === 'group') {
+      if (!standings.qualified) return `Finished ${standings.userRank}${ordinal(standings.userRank)} — only the top two advance.`
+      return null
+    }
+    const r = standings.userRank
+    if (standings.status === 'direct') return `Finished ${r}${ordinal(r)} — straight into the Round of 16.`
+    if (standings.status === 'playoff') return `Finished ${r}${ordinal(r)} — into the knockout play-off.`
+    return `Finished ${r}${ordinal(r)} — outside the top ${standings.playoffMax}, eliminated.`
+  })()
+
   return (
     <section className="mx-auto max-w-2xl px-4 py-10 sm:px-5">
       <div className="mb-8 animate-spinReveal text-center">
@@ -163,15 +213,13 @@ export default function SimulationScreen({ team, result, onReplay, onEditXI }) {
         <h1 className={`font-display text-4xl leading-tight sm:text-5xl ${champion ? 'text-gold' : 'text-cream'}`}>{verdict}</h1>
       </div>
 
-      {/* Match log */}
       <div className="panel mb-6 divide-y divide-white/5">
         {matches.map((m, i) => (
           <MatchRow key={i} m={m} isFinal={m.stage === 'FINAL'} note={noteByMatchIndex[i]} />
         ))}
       </div>
 
-      {/* Summary card */}
-      <div className="panel mb-8 flex flex-col items-center gap-5 p-6 sm:flex-row sm:gap-8" style={{ boxShadow: '0 0 0 1px rgba(201,168,76,0.25), 0 18px 50px -20px rgba(0,0,0,0.7)' }}>
+      <div className="panel mb-6 flex flex-col items-center gap-5 p-6 sm:flex-row sm:gap-8" style={{ boxShadow: '0 0 0 1px rgba(201,168,76,0.25), 0 18px 50px -20px rgba(0,0,0,0.7)' }}>
         <div className="flex items-baseline gap-2">
           <span className="font-display text-7xl font-bold leading-none text-green-300" style={{ textShadow: '0 0 24px rgba(134,239,172,0.35)' }}>{totals.W}</span>
           <span className="font-display text-5xl text-bluegray">–</span>
@@ -193,7 +241,10 @@ export default function SimulationScreen({ team, result, onReplay, onEditXI }) {
         </div>
       )}
 
-      <div className="mb-8"><Standings rows={group.rows} userClub={team.club} /></div>
+      <div className="mb-8">
+        <Standings standings={standings} userClub={team.club} />
+        {exitNote && <p className="mt-3 text-center font-display text-lg italic text-bluegray">{exitNote}</p>}
+      </div>
 
       <div className="flex flex-wrap items-center justify-center gap-3">
         <button onClick={onEditXI} className="btn-ghost">← Adjust the XI</button>

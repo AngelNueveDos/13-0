@@ -9,16 +9,29 @@ import { FORMATIONS, FORMATION_NAMES, playerFitsRole } from './data/formations'
 import { average } from './lib/util'
 import { runTournament } from './lib/sim'
 
-export default function App() {
-  const [step, setStep] = useState('formation') // formation | draft | result
-  const [formationKey, setFormationKey] = useState('4-3-3')
+const DIFFICULTIES = [
+  { key: 'Easy', rerolls: 3, sub: '3 re-rolls' },
+  { key: 'Medium', rerolls: 1, sub: '1 re-roll' },
+  { key: 'Hard', rerolls: 0, sub: 'no re-rolls' },
+]
+const FORMATS = [
+  { key: 'group', label: 'Group Stage', sub: 'Classic · 4-team group, home & away' },
+  { key: 'league', label: 'League Stage', sub: 'New · 36-team Swiss league phase' },
+]
 
-  const [currentTeam, setCurrentTeam] = useState(null) // the rolled club
+export default function App() {
+  const [step, setStep] = useState('setup') // setup | draft | result
+  const [formationKey, setFormationKey] = useState('4-3-3')
+  const [difficulty, setDifficulty] = useState('Medium')
+  const [format, setFormat] = useState('group')
+
+  const [currentTeam, setCurrentTeam] = useState(null)
   const [rollPhase, setRollPhase] = useState('idle') // idle | rolling
+  const [rerollsLeft, setRerollsLeft] = useState(0)
   const [assignments, setAssignments] = useState({}) // slotId -> player (with origin)
   const [armed, setArmed] = useState(null) // { player, source:'draft'|'pitch', fromSlotId? }
   const [result, setResult] = useState(null)
-  const [simTeam, setSimTeam] = useState(null) // display label for the result screen
+  const [simTeam, setSimTeam] = useState(null)
   const [howTo, setHowTo] = useState(false)
 
   const slots = FORMATIONS[formationKey]
@@ -28,8 +41,6 @@ export default function App() {
   const complete = count === 11
   const liveAvg = placed.length ? average(placed.map((p) => p.rating)) : 0
 
-  // A drawn player can be picked if they're not already on the pitch and fit at
-  // least one empty slot.
   const canPlace = useMemo(() => {
     return (player) => {
       if (usedNames.has(player.name)) return false
@@ -39,7 +50,6 @@ export default function App() {
 
   const canPlaceAny = currentTeam ? currentTeam.players.some((p) => canPlace(p)) : false
 
-  // Slots highlighted for the currently-armed player (empty fits, or valid swaps).
   const eligibleSlotIds = useMemo(() => {
     const set = new Set()
     if (!armed) return set
@@ -56,8 +66,8 @@ export default function App() {
     return set
   }, [armed, slots, assignments])
 
-  // ── Flow ──────────────────────────────────────────────────────────────────
-  function rollTeam() {
+  // ── Drawing ──────────────────────────────────────────────────────────────────
+  function drawClub() {
     setRollPhase('rolling')
     setArmed(null)
     setTimeout(() => {
@@ -70,7 +80,13 @@ export default function App() {
       }
       setCurrentTeam(next)
       setRollPhase('idle')
-    }, 850)
+    }, 800)
+  }
+  const roll = () => drawClub()
+  function reroll() {
+    if (rerollsLeft <= 0) return
+    setRerollsLeft((n) => n - 1)
+    drawClub()
   }
 
   function startDraft() {
@@ -78,7 +94,7 @@ export default function App() {
     setAssignments({})
     setArmed(null)
     setCurrentTeam(null)
-    rollTeam()
+    setRerollsLeft(DIFFICULTIES.find((d) => d.key === difficulty).rerolls)
   }
 
   function pickCandidate(player) {
@@ -88,62 +104,48 @@ export default function App() {
 
   function onSlotClick(slot) {
     const occupant = assignments[slot.id]
-    // tap the picked-up token again to cancel a reposition
     if (armed && armed.source === 'pitch' && armed.fromSlotId === slot.id) {
       setArmed(null)
       return
     }
-    // valid placement / move / swap
     if (armed && eligibleSlotIds.has(slot.id)) {
       const a = armed
       const wasDraft = a.source === 'draft'
       setAssignments((prev) => {
         const copy = { ...prev }
         if (a.source === 'pitch') {
-          if (occupant) {
-            copy[slot.id] = a.player
-            copy[a.fromSlotId] = occupant
-          } else {
-            delete copy[a.fromSlotId]
-            copy[slot.id] = a.player
-          }
+          if (occupant) { copy[slot.id] = a.player; copy[a.fromSlotId] = occupant }
+          else { delete copy[a.fromSlotId]; copy[slot.id] = a.player }
         } else {
           copy[slot.id] = { ...a.player, fromClub: currentTeam.club, fromEdition: currentTeam.edition }
         }
         return copy
       })
       setArmed(null)
-      if (wasDraft && count + 1 < 11) rollTeam()
+      if (wasDraft) setCurrentTeam(null) // pick spent — user rolls for the next one
       return
     }
-    // tapping any filled token picks that player up to reposition
-    if (occupant) {
-      setArmed({ player: occupant, source: 'pitch', fromSlotId: slot.id })
-    }
+    if (occupant) setArmed({ player: occupant, source: 'pitch', fromSlotId: slot.id })
   }
 
   function simulate() {
     if (!complete) return
     const editions = [...new Set(placed.map((p) => p.fromEdition).filter(Boolean))]
-    const userTeam = {
-      club: 'Your XI',
-      league: null,
-      edition: editions.length === 1 ? editions[0] : 'Select XI',
-      players: placed,
-    }
+    const userTeam = { club: 'Your XI', league: null, edition: editions.length === 1 ? editions[0] : 'Select XI', players: placed }
     setSimTeam({ club: userTeam.club, edition: userTeam.edition })
-    setResult(runTournament(userTeam, placed, teams))
+    setResult(runTournament(userTeam, placed, teams, { format }))
     setStep('result')
   }
 
   function playAgain() {
-    setStep('formation')
+    setStep('setup')
     setFormationKey('4-3-3')
     setCurrentTeam(null)
     setRollPhase('idle')
     setAssignments({})
     setArmed(null)
     setResult(null)
+    setSimTeam(null)
   }
 
   const hint = (() => {
@@ -151,8 +153,9 @@ export default function App() {
     if (armed) return `Placing ${armed.player.name} — tap a highlighted position`
     if (complete) return 'Squad complete — tap any player to reposition, or simulate'
     if (rollPhase === 'rolling') return 'Drawing a club…'
-    if (!canPlaceAny) return 'No one fits a free slot — redraw'
-    return currentTeam ? `Pick one player from ${currentTeam.club}` : ''
+    if (currentTeam && !canPlaceAny) return 'No one fits a free slot — redraw'
+    if (currentTeam) return `Pick one player from ${currentTeam.club}`
+    return 'Roll to draw a club for your next pick'
   })()
 
   return (
@@ -160,40 +163,75 @@ export default function App() {
       <Header onHowTo={() => setHowTo(true)} onReplay={playAgain} />
       <HowToModal open={howTo} onClose={() => setHowTo(false)} />
 
-      {/* ── Step 1: formation ── */}
-      {step === 'formation' && (
+      {/* ── Step 1: setup ── */}
+      {step === 'setup' && (
         <main className="mx-auto flex min-h-[calc(100vh-64px)] max-w-3xl flex-col items-center justify-center px-5 py-12 text-center">
           <p className="eyebrow mb-2 animate-fadeUp">UEFA Champions League · 2010—2025</p>
-          <h1 className="mb-3 animate-fadeUp font-display text-5xl leading-tight text-cream sm:text-6xl">
-            Choose your shape.
-          </h1>
+          <h1 className="mb-3 animate-fadeUp font-display text-5xl leading-tight text-cream sm:text-6xl">Set your terms.</h1>
           <p className="mb-8 max-w-md animate-fadeUp text-xl text-bluegray">
-            Lock in a formation. You can’t change it once the draft begins — every
-            player will arrive from a different random club.
+            Lock a shape, a competition format and a difficulty. Then draft eleven
+            players, each from a different random club.
           </p>
 
-          <div className="mb-8 grid grid-cols-2 gap-2.5 sm:grid-cols-4">
-            {FORMATION_NAMES.map((key) => (
-              <button
-                key={key}
-                onClick={() => setFormationKey(key)}
-                className={[
-                  'rounded-xl px-5 py-3 font-display text-lg tracking-wide transition-all',
-                  formationKey === key
-                    ? 'bg-gold text-navy-deep shadow-gold'
-                    : 'border border-white/10 text-bluegray hover:-translate-y-0.5 hover:border-gold/40 hover:text-gold',
-                ].join(' ')}
-              >
-                {key}
-              </button>
-            ))}
+          <div className="panel mb-6 w-full max-w-2xl space-y-5 p-5 text-left">
+            <div>
+              <p className="eyebrow mb-2">Formation</p>
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                {FORMATION_NAMES.map((key) => (
+                  <button
+                    key={key}
+                    onClick={() => setFormationKey(key)}
+                    className={[
+                      'rounded-xl px-3 py-2.5 font-display text-base tracking-wide transition-all',
+                      formationKey === key ? 'bg-gold text-navy-deep shadow-gold' : 'border border-white/10 text-bluegray hover:-translate-y-0.5 hover:border-gold/40 hover:text-gold',
+                    ].join(' ')}
+                  >
+                    {key}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <p className="eyebrow mb-2">Format</p>
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                {FORMATS.map((f) => (
+                  <button
+                    key={f.key}
+                    onClick={() => setFormat(f.key)}
+                    className={[
+                      'rounded-xl px-4 py-3 text-left transition-all',
+                      format === f.key ? 'bg-gold text-navy-deep shadow-gold' : 'border border-white/10 hover:-translate-y-0.5 hover:border-gold/40',
+                    ].join(' ')}
+                  >
+                    <p className={`font-display text-lg ${format === f.key ? 'text-navy-deep' : 'text-cream'}`}>{f.label}</p>
+                    <p className={`text-sm ${format === f.key ? 'text-navy-deep/70' : 'text-bluegray'}`}>{f.sub}</p>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <p className="eyebrow mb-2">Difficulty Mode</p>
+              <div className="grid grid-cols-3 gap-2">
+                {DIFFICULTIES.map((d) => (
+                  <button
+                    key={d.key}
+                    onClick={() => setDifficulty(d.key)}
+                    className={[
+                      'rounded-xl px-3 py-3 transition-all',
+                      difficulty === d.key ? 'bg-gold text-navy-deep shadow-gold' : 'border border-white/10 hover:-translate-y-0.5 hover:border-gold/40',
+                    ].join(' ')}
+                  >
+                    <p className={`font-display text-lg ${difficulty === d.key ? 'text-navy-deep' : 'text-cream'}`}>{d.key}</p>
+                    <p className={`text-xs uppercase tracking-wide ${difficulty === d.key ? 'text-navy-deep/70' : 'text-bluegray'}`}>{d.sub}</p>
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
 
           <button onClick={startDraft} className="btn-gold text-lg">Start the draft →</button>
-
-          <div className="mt-10 w-full max-w-xs opacity-80">
-            <Pitch slots={slots} assignments={{}} eligibleSlotIds={null} onSlotClick={() => {}} />
-          </div>
         </main>
       )}
 
@@ -202,9 +240,9 @@ export default function App() {
         <main className="mx-auto max-w-6xl px-4 py-6 sm:px-5">
           <div className="panel mb-5 flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <p className="eyebrow">Formation {formationKey} · drafting your eleven</p>
+              <p className="eyebrow">{formationKey} · {FORMATS.find((f) => f.key === format).label} · {difficulty}</p>
               <h2 className="font-display text-3xl text-cream">
-                {complete ? 'Squad complete' : currentTeam ? <>Drawn: <span className="text-gold">{currentTeam.club}</span></> : 'Drawing…'}
+                {complete ? 'Squad complete' : currentTeam ? <>Drawn: <span className="text-gold">{currentTeam.club}</span></> : 'Roll your next pick'}
               </h2>
             </div>
             <div className="flex flex-wrap items-center gap-4">
@@ -215,6 +253,10 @@ export default function App() {
               <div className="text-center">
                 <p className="font-display text-2xl text-cream">{liveAvg ? liveAvg.toFixed(1) : '—'}</p>
                 <p className="text-xs uppercase tracking-wider text-bluegray">Avg rating</p>
+              </div>
+              <div className="text-center">
+                <p className="font-display text-2xl text-cream">{rerollsLeft}</p>
+                <p className="text-xs uppercase tracking-wider text-bluegray">Re-rolls</p>
               </div>
               <button onClick={simulate} disabled={!complete} className="btn-gold">Simulate →</button>
             </div>
@@ -240,6 +282,11 @@ export default function App() {
                   <p className="text-bluegray">Tap any player on the pitch to move them to another position they can play, or run the campaign.</p>
                   <button onClick={simulate} className="btn-gold mt-2">Simulate the campaign →</button>
                 </div>
+              ) : rollPhase === 'rolling' ? (
+                <div className="panel flex h-full flex-col items-center justify-center gap-3 text-bluegray">
+                  <span className="text-4xl animate-starSpin">🎲</span>
+                  <p className="font-display text-lg">Drawing a club…</p>
+                </div>
               ) : currentTeam ? (
                 <div className="flex h-full flex-col gap-3">
                   <DraftList
@@ -250,12 +297,20 @@ export default function App() {
                     canPlace={canPlace}
                     onPick={pickCandidate}
                   />
-                  {!canPlaceAny && rollPhase === 'idle' && (
-                    <button onClick={rollTeam} className="btn-ghost shrink-0">🎲 Redraw — no fit here</button>
+                  {!canPlaceAny ? (
+                    <button onClick={roll} className="btn-ghost shrink-0">🎲 Redraw — no fit here (free)</button>
+                  ) : (
+                    <button onClick={reroll} disabled={rerollsLeft <= 0} className="btn-ghost shrink-0">
+                      ↻ Re-roll this club {rerollsLeft > 0 ? `(${rerollsLeft} left)` : '(none left)'}
+                    </button>
                   )}
                 </div>
               ) : (
-                <div className="panel flex h-full items-center justify-center text-bluegray">Drawing a club…</div>
+                <div className="panel flex h-full flex-col items-center justify-center gap-4 p-6 text-center">
+                  <p className="font-display text-2xl text-cream">{count === 0 ? 'Draw your first club' : `Pick ${count + 1} of 11`}</p>
+                  <p className="text-bluegray">Roll the dice to be handed a random club, then take one player.</p>
+                  <button onClick={roll} className="btn-gold mt-1 text-lg"><span>🎲</span> Roll</button>
+                </div>
               )}
             </div>
           </div>
@@ -264,17 +319,12 @@ export default function App() {
 
       {/* ── Step 3: result ── */}
       {step === 'result' && result && simTeam && (
-        <SimulationScreen
-          team={simTeam}
-          result={result}
-          onReplay={playAgain}
-          onEditXI={() => setStep('draft')}
-        />
+        <SimulationScreen team={simTeam} result={result} onReplay={playAgain} onEditXI={() => setStep('draft')} />
       )}
 
       <footer className="border-t border-white/5 py-6 text-center">
         <p className="font-display text-sm tracking-wide text-bluegray/60">
-          13—0 · draft eleven players from random clubs · group stage, two-legged knockouts, a one-off final
+          13—0 · draft eleven from random clubs · group or league phase, two-legged knockouts, a one-off final
         </p>
       </footer>
     </div>

@@ -1,18 +1,18 @@
 const STEPS = [
   {
     n: '01',
-    title: 'Lock your shape',
-    body: 'Pick one of eight formations. It’s fixed for the whole draft, so choose the system you want to fill.',
+    title: 'Set your terms',
+    body: 'Choose a formation, a format (classic Group Stage or the new 36-team League Stage) and a difficulty — Easy/Medium/Hard set how many re-rolls you get (3/1/0).',
   },
   {
     n: '02',
     title: 'Draft your eleven',
-    body: 'A random club is drawn. Take one player and place him at a position he can play — then a new club is drawn. Repeat until eleven are on the pitch. Tap a placed player to move or swap him.',
+    body: 'Press Roll to draw a random club, then take one player and place him at a position he can play. Roll again for the next pick — re-roll a club you dislike if you still have credits. Tap a placed player to move or swap him.',
   },
   {
     n: '03',
     title: 'Win Europe',
-    body: 'Simulate a six-match group, then two-legged knockouts and a one-off final. Top two of the group advance — a stronger XI tilts the odds your way.',
+    body: 'Simulate the campaign: a group (or league) phase, two-legged knockouts and a one-off final. A stronger XI tilts the odds your way.',
   },
 ]
 
