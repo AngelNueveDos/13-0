@@ -39,7 +39,7 @@ function poisson(lambda) {
 }
 
 function playMatch(strHome, strAway, neutral = false) {
-  const K = 0.06
+  const K = 0.072
   const BASE = 1.32
   const homeBonus = neutral ? 0 : 0.35
   const diff = strHome - strAway
@@ -136,7 +136,7 @@ function pickKnockoutOpponents(userTeam, usedClubs, pool, strengthOf, nRounds) {
   const usedIdx = new Set()
   const out = []
   for (let r = 0; r < nRounds; r++) {
-    const pc = nRounds === 1 ? 0.7 : 0.32 + (0.95 - 0.32) * (r / (nRounds - 1))
+    const pc = nRounds === 1 ? 0.6 : 0.2 + (0.8 - 0.2) * (r / (nRounds - 1))
     let idx = clamp(Math.round(pc * (avail.length - 1)) + (Math.floor(Math.random() * 3) - 1), 0, avail.length - 1)
     let guard = 0
     while (usedIdx.has(idx) && guard++ < avail.length) idx = clamp(idx + 1, 0, avail.length - 1)

@@ -289,21 +289,21 @@ export default function App() {
                 </div>
               ) : currentTeam ? (
                 <div className="flex h-full flex-col gap-3">
-                  <DraftList
-                    club={currentTeam.club}
-                    edition={currentTeam.edition}
-                    players={currentTeam.players}
-                    armedName={armed?.source === 'draft' ? armed.player.name : null}
-                    canPlace={canPlace}
-                    onPick={pickCandidate}
-                  />
+                  <div className="min-h-0 flex-1">
+                    <DraftList
+                      club={currentTeam.club}
+                      edition={currentTeam.edition}
+                      players={currentTeam.players}
+                      armedName={armed?.source === 'draft' ? armed.player.name : null}
+                      canPlace={canPlace}
+                      onPick={pickCandidate}
+                    />
+                  </div>
                   {!canPlaceAny ? (
                     <button onClick={roll} className="btn-ghost shrink-0">🎲 Redraw — no fit here (free)</button>
-                  ) : (
-                    <button onClick={reroll} disabled={rerollsLeft <= 0} className="btn-ghost shrink-0">
-                      ↻ Re-roll this club {rerollsLeft > 0 ? `(${rerollsLeft} left)` : '(none left)'}
-                    </button>
-                  )}
+                  ) : rerollsLeft > 0 ? (
+                    <button onClick={reroll} className="btn-ghost shrink-0">↻ Re-roll this club ({rerollsLeft} left)</button>
+                  ) : null}
                 </div>
               ) : (
                 <div className="panel flex h-full flex-col items-center justify-center gap-4 p-6 text-center">
