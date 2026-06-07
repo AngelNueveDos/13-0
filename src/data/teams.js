@@ -1,24 +1,21 @@
 // ─────────────────────────────────────────────────────────────────────────────
 //  13—0  ·  SQUAD DATABASE
 //
-//  Each player has ONLY:
-//    name      : string    — full name
-//    rating    : number     — FIFA rating of the matching season
-//    positions : string[]   — covered roles, e.g. ["ST","RW","CF"]
-//
-//  Each team: { club, edition, crown?, players[] }
+//  Player:  { name, rating, positions[] }
+//  Team:    { club, league, edition, crown?, players[] }
 //
 //  Position taxonomy:
 //    GK · CB · SW · LB · LWB · RB · RWB · CDM · CM · CAM · LM · RM · LW · RW · ST · CF
 //
-//  SOURCE: edition 2010-11 imported from the project's own spreadsheet
-//  (14 clubs). Add further editions/clubs by appending objects here — zero
-//  code changes required. "LF"/"RF" from the sheet are normalised to LW/RW.
+//  `league` powers the UEFA group-draw rule (no two clubs from the same league
+//  in a group). SOURCE: edition 2010-11 imported from the project spreadsheet
+//  (14 clubs). "LF"/"RF" from the sheet are normalised to LW/RW.
 // ─────────────────────────────────────────────────────────────────────────────
 
 export const teams = [
   {
     club: "Tottenham",
+    league: "England",
     edition: "2010-11",
     players: [
       { name: "Heurelho Gomes", rating: 83, positions: ["GK"] },
@@ -52,6 +49,7 @@ export const teams = [
   },
   {
     club: "Inter Milan",
+    league: "Italy",
     edition: "2010-11",
     players: [
       { name: "César", rating: 87, positions: ["GK"] },
@@ -79,6 +77,7 @@ export const teams = [
   },
   {
     club: "Schalke 04",
+    league: "Germany",
     edition: "2010-11",
     players: [
       { name: "Manuel Neuer", rating: 85, positions: ["GK"] },
@@ -107,6 +106,7 @@ export const teams = [
   },
   {
     club: "Olympique Lyonnais",
+    league: "France",
     edition: "2010-11",
     players: [
       { name: "Hugo Lloris", rating: 84, positions: ["GK"] },
@@ -130,6 +130,7 @@ export const teams = [
   },
   {
     club: "Manchester United",
+    league: "England",
     edition: "2010-11",
     players: [
       { name: "Edwin van der Sar", rating: 83, positions: ["GK"] },
@@ -157,6 +158,7 @@ export const teams = [
   },
   {
     club: "Valencia CF",
+    league: "Spain",
     edition: "2010-11",
     players: [
       { name: "Cesar Sanchez", rating: 79, positions: ["GK"] },
@@ -185,6 +187,7 @@ export const teams = [
   },
   {
     club: "FC Barcelona",
+    league: "Spain",
     edition: "2010-11",
     crown: "Winners · Wembley",
     players: [
@@ -213,6 +216,7 @@ export const teams = [
   },
   {
     club: "Bayern München",
+    league: "Germany",
     edition: "2010-11",
     players: [
       { name: "Hans-Jörg Butt", rating: 79, positions: ["GK"] },
@@ -237,6 +241,7 @@ export const teams = [
   },
   {
     club: "AS Roma",
+    league: "Italy",
     edition: "2010-11",
     players: [
       { name: "Julio Sergio", rating: 79, positions: ["GK"] },
@@ -262,6 +267,7 @@ export const teams = [
   },
   {
     club: "Chelsea",
+    league: "England",
     edition: "2010-11",
     players: [
       { name: "Petr Cech", rating: 84, positions: ["GK"] },
@@ -288,6 +294,7 @@ export const teams = [
   },
   {
     club: "Marseille",
+    league: "France",
     edition: "2010-11",
     players: [
       { name: "Steve Mandanda", rating: 83, positions: ["GK"] },
@@ -310,6 +317,7 @@ export const teams = [
   },
   {
     club: "Real Madrid",
+    league: "Spain",
     edition: "2010-11",
     players: [
       { name: "Iker Casillas", rating: 89, positions: ["GK"] },
@@ -338,6 +346,7 @@ export const teams = [
   },
   {
     club: "AC Milan",
+    league: "Italy",
     edition: "2010-11",
     players: [
       { name: "Christian Abbiati", rating: 79, positions: ["GK"] },
@@ -364,6 +373,7 @@ export const teams = [
   },
   {
     club: "Arsenal",
+    league: "England",
     edition: "2010-11",
     players: [
       { name: "Manuel Almunia", rating: 77, positions: ["GK"] },

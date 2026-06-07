@@ -12,6 +12,16 @@ export function initials(name) {
   return (first + last).toUpperCase()
 }
 
+// Surname-ish label for the pitch token.
+export function shortName(name) {
+  const parts = name.split(/\s+/).filter(Boolean)
+  if (parts.length === 1) return parts[0]
+  const last = parts[parts.length - 1]
+  // keep a particle with the surname when the last word is tiny (e.g. "da")
+  if (last.length <= 3 && parts.length >= 2) return parts.slice(-2).join(' ')
+  return last
+}
+
 export function average(nums) {
   if (!nums.length) return 0
   return nums.reduce((a, b) => a + b, 0) / nums.length

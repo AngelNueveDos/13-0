@@ -1,18 +1,18 @@
 const STEPS = [
   {
     n: '01',
-    title: 'Draw your fate',
-    body: 'Spin the draw to be handed a Champions League edition and one of the era’s great clubs. No two runs alike.',
+    title: 'Shape & draw',
+    body: 'Choose a formation, then roll the dice to be handed one of the era’s great clubs at random.',
   },
   {
     n: '02',
-    title: 'Pick your eleven',
-    body: 'Place eleven players from that squad onto the pitch. Tap a position to see who fits, then choose your formation.',
+    title: 'Build your eleven',
+    body: 'Tap a player from the squad, then tap a glowing position to place them there. Tap a token to remove it.',
   },
   {
     n: '03',
-    title: 'Write history',
-    body: 'Simulate the campaign. The stronger your average rating, the better your odds of lifting the trophy in Europe.',
+    title: 'Win Europe',
+    body: 'Simulate a six-match group, then two-legged knockouts and a one-off final. Top two of the group advance — a stronger XI tilts the odds your way.',
   },
 ]
 
