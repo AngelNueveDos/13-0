@@ -1,13 +1,13 @@
 const STEPS = [
   {
     n: '01',
-    title: 'Shape & draw',
-    body: 'Choose a formation, then roll the dice to be handed one of the era’s great clubs at random.',
+    title: 'Lock your shape',
+    body: 'Pick one of eight formations. It’s fixed for the whole draft, so choose the system you want to fill.',
   },
   {
     n: '02',
-    title: 'Build your eleven',
-    body: 'Tap a player from the squad, then tap a glowing position to place them there. Tap a token to remove it.',
+    title: 'Draft your eleven',
+    body: 'A random club is drawn. Take one player and place him at a position he can play — then a new club is drawn. Repeat until eleven are on the pitch. Tap a placed player to move or swap him.',
   },
   {
     n: '03',

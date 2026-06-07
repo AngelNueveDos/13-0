@@ -16,9 +16,6 @@ export default function Header({ onHowTo, onReplay }) {
           <button onClick={onHowTo} className="btn-ghost !px-4 !py-2 text-xs sm:text-sm">
             How to play
           </button>
-          <button onClick={onReplay} className="btn-ghost !px-4 !py-2 text-xs sm:text-sm">
-            Replay
-          </button>
         </nav>
       </div>
     </header>

@@ -1,5 +1,5 @@
-import { initials, shortName } from '../lib/util'
-import { labelFor, playerFitsRole } from '../data/formations'
+import { shortName } from '../lib/util'
+import { labelFor } from '../data/formations'
 
 function FieldLines() {
   const stroke = 'rgba(244,241,232,0.32)'
@@ -49,6 +49,7 @@ function Token({ slot, player, active, eligible, onClick }) {
             : !player
               ? 'border-gold/30 group-hover:border-gold/70'
               : '',
+          player && eligible ? 'ring-2 ring-gold/70 ring-offset-2 ring-offset-navy animate-pulseGlow' : '',
           active ? 'ring-2 ring-gold ring-offset-2 ring-offset-navy' : '',
         ].join(' ')}
       >
@@ -76,7 +77,7 @@ function Token({ slot, player, active, eligible, onClick }) {
   )
 }
 
-export default function Pitch({ slots, assignments, armedPlayer, activeSlotId, onSlotClick }) {
+export default function Pitch({ slots, assignments, eligibleSlotIds, activeSlotId, onSlotClick }) {
   return (
     <div
       className="grass-stripes relative mx-auto aspect-[3/4] w-full max-w-md overflow-hidden rounded-2xl border border-white/5"
@@ -86,20 +87,16 @@ export default function Pitch({ slots, assignments, armedPlayer, activeSlotId, o
       }}
     >
       <FieldLines />
-      {slots.map((slot) => {
-        const player = assignments[slot.id]
-        const eligible = !player && !!armedPlayer && playerFitsRole(armedPlayer, slot.role)
-        return (
-          <Token
-            key={slot.id}
-            slot={slot}
-            player={player}
-            eligible={eligible}
-            active={activeSlotId === slot.id}
-            onClick={() => onSlotClick(slot)}
-          />
-        )
-      })}
+      {slots.map((slot) => (
+        <Token
+          key={slot.id}
+          slot={slot}
+          player={assignments[slot.id]}
+          eligible={eligibleSlotIds?.has(slot.id)}
+          active={activeSlotId === slot.id}
+          onClick={() => onSlotClick(slot)}
+        />
+      ))}
     </div>
   )
 }

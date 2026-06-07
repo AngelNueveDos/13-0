@@ -12,6 +12,11 @@ const fmtScorers = (arr) =>
   arr.map((s) => (s.count > 1 ? `${s.name} (${s.count})` : s.name)).join(', ')
 
 const LEG_LABEL = { 1: '1st leg', 2: '2nd leg' }
+const VENUE = {
+  H: { label: 'Home', cls: 'text-green-300/90' },
+  A: { label: 'Away', cls: 'text-sky-300/90' },
+  N: { label: 'Neutral', cls: 'text-gold/90' },
+}
 
 function tieNote(tie) {
   if (!tie) return null
@@ -32,6 +37,7 @@ function MatchRow({ m, isFinal, note }) {
         <div className="w-20 shrink-0">
           <p className="font-display text-[0.6rem] uppercase leading-tight tracking-[0.2em] text-bluegray">{m.stage}</p>
           {m.leg && <p className="text-[0.6rem] uppercase tracking-wider text-bluegray/60">{LEG_LABEL[m.leg]}</p>}
+          <p className={`text-[0.6rem] font-semibold uppercase tracking-wider ${VENUE[m.venue].cls}`}>{VENUE[m.venue].label}</p>
         </div>
         <div className="min-w-0 flex-1">
           <p className="truncate font-display text-lg text-cream">
@@ -122,7 +128,7 @@ export default function SimulationScreen({ team, result, onReplay, onEditXI }) {
     return () => { clearInterval(stepper); clearTimeout(done) }
   }, [result])
 
-  const { totals, group, matches, ties, champion, verdict } = result
+  const { totals, group, matches, ties, champion, verdict, cleanSheets, topScorer } = result
 
   // Attach each knockout tie's outcome note to the last match of that stage.
   const noteByMatchIndex = useMemo(() => {
@@ -171,12 +177,21 @@ export default function SimulationScreen({ team, result, onReplay, onEditXI }) {
           <span className="font-display text-5xl text-bluegray">–</span>
           <span className="font-display text-7xl font-bold leading-none text-gold">{totals.L}</span>
         </div>
-        <div className="grid flex-1 grid-cols-3 gap-4 text-center">
+        <div className="grid flex-1 grid-cols-2 gap-4 text-center sm:grid-cols-4">
           <div><p className="font-display text-3xl text-cream">{totals.GF}</p><p className="text-xs uppercase tracking-wider text-bluegray">Goals for</p></div>
           <div><p className="font-display text-3xl text-cream">{totals.GA}</p><p className="text-xs uppercase tracking-wider text-bluegray">Against</p></div>
-          <div><p className="font-display text-3xl text-gold">{totals.W}</p><p className="text-xs uppercase tracking-wider text-bluegray">Wins</p></div>
+          <div><p className="font-display text-3xl text-cream">{totals.P}</p><p className="text-xs uppercase tracking-wider text-bluegray">Played</p></div>
+          <div><p className="font-display text-3xl text-gold">{cleanSheets}</p><p className="text-xs uppercase tracking-wider text-bluegray">Clean sheets</p></div>
         </div>
       </div>
+
+      {topScorer && (
+        <div className="mb-8 flex items-center justify-center gap-3 font-display text-lg">
+          <span className="eyebrow">Top scorer</span>
+          <span className="text-cream">{topScorer.name}</span>
+          <span className="flex h-7 min-w-7 items-center justify-center rounded-full bg-gold px-2 text-sm font-bold text-navy-deep">{topScorer.goals}</span>
+        </div>
+      )}
 
       <div className="mb-8"><Standings rows={group.rows} userClub={team.club} /></div>
 

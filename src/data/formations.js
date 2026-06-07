@@ -1,23 +1,25 @@
 // Pitch coordinate system: x 0–100 (left→right), y 0–100 (opponent goal → own goal).
 // GK sits near y≈90 (bottom, own goal); forwards near the top (y≈18).
 
-// Which player positions are accepted in a given slot role.
+// Which player positions may fill a given slot role. Kept tight: only the role
+// itself plus footballingly-equivalent roles on the SAME line / flank. A winger
+// or midfielder can NEVER fill a full-back slot, etc.
 export const ACCEPTS = {
   GK: ['GK'],
   CB: ['CB', 'SW'],
   SW: ['SW', 'CB'],
-  LB: ['LB', 'LWB', 'LM'],
-  RB: ['RB', 'RWB', 'RM'],
-  LWB: ['LWB', 'LB', 'LM'],
-  RWB: ['RWB', 'RB', 'RM'],
+  LB: ['LB', 'LWB'],
+  RB: ['RB', 'RWB'],
+  LWB: ['LWB', 'LB'],
+  RWB: ['RWB', 'RB'],
   CDM: ['CDM', 'CM'],
   CM: ['CM', 'CDM', 'CAM'],
   CAM: ['CAM', 'CM', 'CF'],
-  LM: ['LM', 'LW', 'LWB', 'LB'],
-  RM: ['RM', 'RW', 'RWB', 'RB'],
-  LW: ['LW', 'LM', 'ST', 'CF'],
-  RW: ['RW', 'RM', 'ST', 'CF'],
-  ST: ['ST', 'CF', 'LW', 'RW'],
+  LM: ['LM', 'LW'],
+  RM: ['RM', 'RW'],
+  LW: ['LW', 'LM'],
+  RW: ['RW', 'RM'],
+  ST: ['ST', 'CF'],
   CF: ['CF', 'ST', 'CAM'],
 }
 

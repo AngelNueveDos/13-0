@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import Header from './components/Header'
 import HowToModal from './components/HowToModal'
 import Pitch from './components/Pitch'
-import SquadList from './components/SquadList'
+import DraftList from './components/DraftList'
 import SimulationScreen from './components/SimulationScreen'
 import { teams } from './data/teams'
 import { FORMATIONS, FORMATION_NAMES, playerFitsRole } from './data/formations'
@@ -10,222 +10,271 @@ import { average } from './lib/util'
 import { runTournament } from './lib/sim'
 
 export default function App() {
-  const [step, setStep] = useState('build') // build | result
-  const [team, setTeam] = useState(null)
-  const [rollPhase, setRollPhase] = useState('idle') // idle | rolling
-
+  const [step, setStep] = useState('formation') // formation | draft | result
   const [formationKey, setFormationKey] = useState('4-3-3')
-  const [assignments, setAssignments] = useState({}) // slotId -> player
-  const [armed, setArmed] = useState(null) // player object being placed
+
+  const [currentTeam, setCurrentTeam] = useState(null) // the rolled club
+  const [rollPhase, setRollPhase] = useState('idle') // idle | rolling
+  const [assignments, setAssignments] = useState({}) // slotId -> player (with origin)
+  const [armed, setArmed] = useState(null) // { player, source:'draft'|'pitch', fromSlotId? }
   const [result, setResult] = useState(null)
+  const [simTeam, setSimTeam] = useState(null) // display label for the result screen
   const [howTo, setHowTo] = useState(false)
 
   const slots = FORMATIONS[formationKey]
-  const usedNames = useMemo(() => new Set(Object.values(assignments).map((p) => p.name)), [assignments])
-  const selectedCount = Object.keys(assignments).length
-  const liveAvg = useMemo(() => {
-    const picked = Object.values(assignments)
-    return picked.length ? average(picked.map((p) => p.rating)) : 0
-  }, [assignments])
+  const placed = Object.values(assignments)
+  const usedNames = useMemo(() => new Set(placed.map((p) => p.name)), [assignments])
+  const count = placed.length
+  const complete = count === 11
+  const liveAvg = placed.length ? average(placed.map((p) => p.rating)) : 0
 
-  // ── Roll ────────────────────────────────────────────────────────────────────
-  function roll() {
+  // A drawn player can be picked if they're not already on the pitch and fit at
+  // least one empty slot.
+  const canPlace = useMemo(() => {
+    return (player) => {
+      if (usedNames.has(player.name)) return false
+      return slots.some((s) => !assignments[s.id] && playerFitsRole(player, s.role))
+    }
+  }, [slots, assignments, usedNames])
+
+  const canPlaceAny = currentTeam ? currentTeam.players.some((p) => canPlace(p)) : false
+
+  // Slots highlighted for the currently-armed player (empty fits, or valid swaps).
+  const eligibleSlotIds = useMemo(() => {
+    const set = new Set()
+    if (!armed) return set
+    const fromSlot = armed.fromSlotId ? slots.find((s) => s.id === armed.fromSlotId) : null
+    for (const s of slots) {
+      if (armed.fromSlotId && s.id === armed.fromSlotId) continue
+      const occ = assignments[s.id]
+      if (!occ) {
+        if (playerFitsRole(armed.player, s.role)) set.add(s.id)
+      } else if (armed.source === 'pitch' && fromSlot) {
+        if (playerFitsRole(armed.player, s.role) && playerFitsRole(occ, fromSlot.role)) set.add(s.id)
+      }
+    }
+    return set
+  }, [armed, slots, assignments])
+
+  // ── Flow ──────────────────────────────────────────────────────────────────
+  function rollTeam() {
     setRollPhase('rolling')
     setArmed(null)
-    setAssignments({})
     setTimeout(() => {
       let next = teams[Math.floor(Math.random() * teams.length)]
-      if (team && teams.length > 1) {
-        while (next.club === team.club && next.edition === team.edition) {
+      if (currentTeam && teams.length > 1) {
+        let guard = 0
+        while (next.club === currentTeam.club && next.edition === currentTeam.edition && guard++ < 20) {
           next = teams[Math.floor(Math.random() * teams.length)]
         }
       }
-      setTeam(next)
+      setCurrentTeam(next)
       setRollPhase('idle')
-    }, 1200)
+    }, 850)
   }
 
-  // ── Formation ─────────────────────────────────────────────────────────────────
-  function changeFormation(key) {
-    const placed = Object.values(assignments)
-    const next = {}
-    const taken = new Set()
-    for (const slot of FORMATIONS[key]) {
-      const fit = placed.find((p) => !taken.has(p.name) && playerFitsRole(p, slot.role))
-      if (fit) { next[slot.id] = fit; taken.add(fit.name) }
-    }
-    setFormationKey(key)
-    setAssignments(next)
+  function startDraft() {
+    setStep('draft')
+    setAssignments({})
+    setArmed(null)
+    setCurrentTeam(null)
+    rollTeam()
   }
 
-  // ── Placement (player-first) ───────────────────────────────────────────────────
-  function armPlayer(player) {
-    setArmed((cur) => (cur && cur.name === player.name ? null : player))
-  }
-
-  function removePlayer(player) {
-    setAssignments((prev) => {
-      const copy = { ...prev }
-      for (const id of Object.keys(copy)) if (copy[id].name === player.name) delete copy[id]
-      return copy
-    })
-    setArmed((cur) => (cur && cur.name === player.name ? null : cur))
+  function pickCandidate(player) {
+    if (!canPlace(player)) return
+    setArmed((cur) => (cur && cur.source === 'draft' && cur.player.name === player.name ? null : { player, source: 'draft' }))
   }
 
   function onSlotClick(slot) {
     const occupant = assignments[slot.id]
-    if (occupant) {
-      // tap a filled token to clear it
-      setAssignments((prev) => {
-        const copy = { ...prev }
-        delete copy[slot.id]
-        return copy
-      })
+    // tap the picked-up token again to cancel a reposition
+    if (armed && armed.source === 'pitch' && armed.fromSlotId === slot.id) {
+      setArmed(null)
       return
     }
-    if (armed && playerFitsRole(armed, slot.role)) {
+    // valid placement / move / swap
+    if (armed && eligibleSlotIds.has(slot.id)) {
+      const a = armed
+      const wasDraft = a.source === 'draft'
       setAssignments((prev) => {
         const copy = { ...prev }
-        for (const id of Object.keys(copy)) if (copy[id].name === armed.name) delete copy[id]
-        copy[slot.id] = armed
+        if (a.source === 'pitch') {
+          if (occupant) {
+            copy[slot.id] = a.player
+            copy[a.fromSlotId] = occupant
+          } else {
+            delete copy[a.fromSlotId]
+            copy[slot.id] = a.player
+          }
+        } else {
+          copy[slot.id] = { ...a.player, fromClub: currentTeam.club, fromEdition: currentTeam.edition }
+        }
         return copy
       })
       setArmed(null)
+      if (wasDraft && count + 1 < 11) rollTeam()
+      return
+    }
+    // tapping any filled token picks that player up to reposition
+    if (occupant) {
+      setArmed({ player: occupant, source: 'pitch', fromSlotId: slot.id })
     }
   }
 
-  // ── Simulate ────────────────────────────────────────────────────────────────
   function simulate() {
-    if (selectedCount !== 11) return
-    setResult(runTournament(team, Object.values(assignments), teams))
+    if (!complete) return
+    const editions = [...new Set(placed.map((p) => p.fromEdition).filter(Boolean))]
+    const userTeam = {
+      club: 'Your XI',
+      league: null,
+      edition: editions.length === 1 ? editions[0] : 'Select XI',
+      players: placed,
+    }
+    setSimTeam({ club: userTeam.club, edition: userTeam.edition })
+    setResult(runTournament(userTeam, placed, teams))
     setStep('result')
   }
 
   function playAgain() {
-    setStep('build')
-    setTeam(null)
+    setStep('formation')
+    setFormationKey('4-3-3')
+    setCurrentTeam(null)
     setRollPhase('idle')
     setAssignments({})
     setArmed(null)
     setResult(null)
-    setFormationKey('4-3-3')
   }
 
-  const FormationChips = ({ className = '' }) => (
-    <div className={`flex flex-wrap items-center gap-2 ${className}`}>
-      {FORMATION_NAMES.map((key) => (
-        <button
-          key={key}
-          onClick={() => changeFormation(key)}
-          className={[
-            'rounded-lg px-3.5 py-1.5 font-display text-sm tracking-wide transition-all',
-            formationKey === key
-              ? 'bg-gold text-navy-deep shadow-gold'
-              : 'border border-white/10 text-bluegray hover:-translate-y-0.5 hover:border-gold/40 hover:text-gold',
-          ].join(' ')}
-        >
-          {key}
-        </button>
-      ))}
-    </div>
-  )
+  const hint = (() => {
+    if (armed && armed.source === 'pitch') return `Repositioning ${armed.player.name} — tap a highlighted slot (a filled one swaps)`
+    if (armed) return `Placing ${armed.player.name} — tap a highlighted position`
+    if (complete) return 'Squad complete — tap any player to reposition, or simulate'
+    if (rollPhase === 'rolling') return 'Drawing a club…'
+    if (!canPlaceAny) return 'No one fits a free slot — redraw'
+    return currentTeam ? `Pick one player from ${currentTeam.club}` : ''
+  })()
 
   return (
     <div className="min-h-screen">
       <Header onHowTo={() => setHowTo(true)} onReplay={playAgain} />
       <HowToModal open={howTo} onClose={() => setHowTo(false)} />
 
-      {step === 'build' && (
-        <main className="mx-auto max-w-6xl px-4 py-6 sm:px-5">
-          {!team ? (
-            // ── Setup: choose a shape, then roll ──
-            <div className="mx-auto max-w-3xl text-center">
-              <p className="eyebrow mb-2 animate-fadeUp">UEFA Champions League · 2010—2025</p>
-              <h1 className="mb-8 animate-fadeUp font-display text-4xl leading-tight text-cream sm:text-5xl">
-                Pick your shape.<br /><span className="text-gold">Roll your club.</span>
-              </h1>
+      {/* ── Step 1: formation ── */}
+      {step === 'formation' && (
+        <main className="mx-auto flex min-h-[calc(100vh-64px)] max-w-3xl flex-col items-center justify-center px-5 py-12 text-center">
+          <p className="eyebrow mb-2 animate-fadeUp">UEFA Champions League · 2010—2025</p>
+          <h1 className="mb-3 animate-fadeUp font-display text-5xl leading-tight text-cream sm:text-6xl">
+            Choose your shape.
+          </h1>
+          <p className="mb-8 max-w-md animate-fadeUp text-xl text-bluegray">
+            Lock in a formation. You can’t change it once the draft begins — every
+            player will arrive from a different random club.
+          </p>
 
-              <div className="panel mx-auto mb-6 max-w-2xl p-5">
-                <p className="eyebrow mb-3 text-left">Step 1 · Formation</p>
-                <FormationChips className="justify-center" />
-                <p className="eyebrow mb-3 mt-6 text-left">Step 2 · The draw</p>
-                <button onClick={roll} disabled={rollPhase === 'rolling'} className="btn-gold mx-auto text-lg">
-                  <span className={rollPhase === 'rolling' ? 'inline-block animate-starSpin' : ''}>🎲</span>
-                  {rollPhase === 'rolling' ? 'Rolling…' : 'Roll'}
-                </button>
-              </div>
+          <div className="mb-8 grid grid-cols-2 gap-2.5 sm:grid-cols-4">
+            {FORMATION_NAMES.map((key) => (
+              <button
+                key={key}
+                onClick={() => setFormationKey(key)}
+                className={[
+                  'rounded-xl px-5 py-3 font-display text-lg tracking-wide transition-all',
+                  formationKey === key
+                    ? 'bg-gold text-navy-deep shadow-gold'
+                    : 'border border-white/10 text-bluegray hover:-translate-y-0.5 hover:border-gold/40 hover:text-gold',
+                ].join(' ')}
+              >
+                {key}
+              </button>
+            ))}
+          </div>
 
-              <div className="opacity-80">
-                <Pitch slots={slots} assignments={{}} armedPlayer={null} onSlotClick={() => {}} />
-                <p className="mt-3 font-display text-base italic text-bluegray/70">
-                  {formationKey} · the shape you’ll fill once your club is drawn
-                </p>
-              </div>
-            </div>
-          ) : (
-            // ── Build the XI ──
-            <>
-              <div className="panel mb-5 flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                  <p className="eyebrow">{team.edition} · Champions League{team.league ? ` · ${team.league}` : ''}</p>
-                  <h2 className="font-display text-3xl text-cream">{team.club}</h2>
-                </div>
-                <div className="flex flex-wrap items-center gap-4">
-                  <div className="text-center">
-                    <p className="font-display text-2xl text-gold">{selectedCount} / 11</p>
-                    <p className="text-xs uppercase tracking-wider text-bluegray">Selected</p>
-                  </div>
-                  <div className="text-center">
-                    <p className="font-display text-2xl text-cream">{liveAvg ? liveAvg.toFixed(1) : '—'}</p>
-                    <p className="text-xs uppercase tracking-wider text-bluegray">Avg rating</p>
-                  </div>
-                  <button onClick={roll} className="btn-ghost">🎲 Re-roll</button>
-                  <button onClick={simulate} disabled={selectedCount !== 11} className="btn-gold">Simulate →</button>
-                </div>
-              </div>
+          <button onClick={startDraft} className="btn-gold text-lg">Start the draft →</button>
 
-              <div className="mb-5 flex flex-wrap items-center gap-2">
-                <span className="eyebrow mr-1">Formation</span>
-                <FormationChips />
-              </div>
-
-              <div className="grid gap-6 lg:grid-cols-[1fr_22rem]">
-                <div>
-                  <Pitch
-                    slots={slots}
-                    assignments={assignments}
-                    armedPlayer={armed}
-                    onSlotClick={onSlotClick}
-                  />
-                  <p className="mt-3 text-center font-display text-base italic text-bluegray/70">
-                    {armed
-                      ? `Placing ${armed.name} — tap a glowing position`
-                      : 'Tap a player, then tap a position · tap a token to remove'}
-                  </p>
-                </div>
-
-                <div className="h-[28rem] lg:h-[42rem]">
-                  <SquadList
-                    squad={team.players}
-                    usedNames={usedNames}
-                    armedName={armed?.name || null}
-                    onArm={armPlayer}
-                    onRemove={removePlayer}
-                  />
-                </div>
-              </div>
-            </>
-          )}
+          <div className="mt-10 w-full max-w-xs opacity-80">
+            <Pitch slots={slots} assignments={{}} eligibleSlotIds={null} onSlotClick={() => {}} />
+          </div>
         </main>
       )}
 
-      {step === 'result' && team && result && (
-        <SimulationScreen team={team} result={result} onReplay={playAgain} onEditXI={() => setStep('build')} />
+      {/* ── Step 2: draft ── */}
+      {step === 'draft' && (
+        <main className="mx-auto max-w-6xl px-4 py-6 sm:px-5">
+          <div className="panel mb-5 flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="eyebrow">Formation {formationKey} · drafting your eleven</p>
+              <h2 className="font-display text-3xl text-cream">
+                {complete ? 'Squad complete' : currentTeam ? <>Drawn: <span className="text-gold">{currentTeam.club}</span></> : 'Drawing…'}
+              </h2>
+            </div>
+            <div className="flex flex-wrap items-center gap-4">
+              <div className="text-center">
+                <p className="font-display text-2xl text-gold">{count} / 11</p>
+                <p className="text-xs uppercase tracking-wider text-bluegray">Drafted</p>
+              </div>
+              <div className="text-center">
+                <p className="font-display text-2xl text-cream">{liveAvg ? liveAvg.toFixed(1) : '—'}</p>
+                <p className="text-xs uppercase tracking-wider text-bluegray">Avg rating</p>
+              </div>
+              <button onClick={simulate} disabled={!complete} className="btn-gold">Simulate →</button>
+            </div>
+          </div>
+
+          <div className="grid gap-6 lg:grid-cols-[1fr_22rem]">
+            <div>
+              <Pitch
+                slots={slots}
+                assignments={assignments}
+                eligibleSlotIds={eligibleSlotIds}
+                activeSlotId={armed?.source === 'pitch' ? armed.fromSlotId : null}
+                onSlotClick={onSlotClick}
+              />
+              <p className="mt-3 text-center font-display text-base italic text-bluegray/70">{hint}</p>
+            </div>
+
+            <div className="h-[28rem] lg:h-[42rem]">
+              {complete ? (
+                <div className="panel flex h-full flex-col items-center justify-center gap-4 p-6 text-center">
+                  <p className="text-5xl">✓</p>
+                  <p className="font-display text-2xl text-cream">Your eleven is set</p>
+                  <p className="text-bluegray">Tap any player on the pitch to move them to another position they can play, or run the campaign.</p>
+                  <button onClick={simulate} className="btn-gold mt-2">Simulate the campaign →</button>
+                </div>
+              ) : currentTeam ? (
+                <div className="flex h-full flex-col gap-3">
+                  <DraftList
+                    club={currentTeam.club}
+                    edition={currentTeam.edition}
+                    players={currentTeam.players}
+                    armedName={armed?.source === 'draft' ? armed.player.name : null}
+                    canPlace={canPlace}
+                    onPick={pickCandidate}
+                  />
+                  {!canPlaceAny && rollPhase === 'idle' && (
+                    <button onClick={rollTeam} className="btn-ghost shrink-0">🎲 Redraw — no fit here</button>
+                  )}
+                </div>
+              ) : (
+                <div className="panel flex h-full items-center justify-center text-bluegray">Drawing a club…</div>
+              )}
+            </div>
+          </div>
+        </main>
+      )}
+
+      {/* ── Step 3: result ── */}
+      {step === 'result' && result && simTeam && (
+        <SimulationScreen
+          team={simTeam}
+          result={result}
+          onReplay={playAgain}
+          onEditXI={() => setStep('draft')}
+        />
       )}
 
       <footer className="border-t border-white/5 py-6 text-center">
         <p className="font-display text-sm tracking-wide text-bluegray/60">
-          13—0 · A Champions League XI builder · group stage, two-legged knockouts, a one-off final
+          13—0 · draft eleven players from random clubs · group stage, two-legged knockouts, a one-off final
         </p>
       </footer>
     </div>

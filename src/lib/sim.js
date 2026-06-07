@@ -295,5 +295,18 @@ export function runTournament(userTeam, userXI, pool) {
   else if (exitRound === 'group stage') verdict = 'Out in the group stage'
   else verdict = `Out in the ${exitRound}`
 
-  return { userStrength, group, matches, ties, champion, exitRound: champion ? null : exitRound, verdict, totals }
+  // End-of-run extras.
+  const cleanSheets = matches.filter((m) => m.ga === 0).length
+  const scorerTally = new Map()
+  matches.forEach((m) => m.scorers.forEach((s) => scorerTally.set(s.name, (scorerTally.get(s.name) || 0) + s.count)))
+  let topScorer = null
+  for (const [name, goals] of scorerTally) {
+    if (!topScorer || goals > topScorer.goals) topScorer = { name, goals }
+  }
+
+  return {
+    userStrength, group, matches, ties, champion,
+    exitRound: champion ? null : exitRound, verdict,
+    totals, cleanSheets, topScorer,
+  }
 }
