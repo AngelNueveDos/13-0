@@ -1,40 +1,40 @@
 // ─────────────────────────────────────────────────────────────────────────────
 //  13—0 · TOURNAMENT ENGINE
 //
-//  1. GROUP STAGE — user + 3 opponents from 3 DIFFERENT leagues (UEFA rule).
-//     Double round-robin (home & away) → 12 matches, full standings table.
-//     Top 2 advance.
-//  2. KNOCKOUTS — Round of 16, Quarter-final, Semi-final: two legs vs one club,
-//     decided on aggregate (penalty shootout if level). Group winners get the
-//     second leg at home; runners-up host the first leg.
-//  3. FINAL — single match on neutral ground.
+//  1. GROUP STAGE — user + 3 opponents from 3 DIFFERENT leagues (UEFA rule),
+//     drawn from the whole pool (any edition). Double round-robin → 6 user
+//     matches, full standings, top 2 advance.
+//  2. KNOCKOUTS — R16 / QF / SF: two legs, decided on aggregate then AWAY GOALS
+//     then a penalty shootout (best of 5, then sudden death). Group winners host
+//     the second leg; runners-up host the first. Opponents drawn from the whole
+//     pool and getting STRONGER each round.
+//  3. FINAL — single match on neutral ground (shootout if drawn).
 //
-//  Strength = average rating of a club's best XI. The user's strength is the
-//  average rating of their *selected* eleven.
+//  Every user match carries its scoreline AND goalscorers (theirs & conceded).
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { average } from './util.js'
+import { average, clubCode } from './util.js'
 
+const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v))
+
+export function bestXI(team) {
+  return [...team.players].sort((a, b) => b.rating - a.rating).slice(0, 11)
+}
 export function bestXIStrength(team) {
-  const top = [...team.players].sort((a, b) => b.rating - a.rating).slice(0, 11)
-  return average(top.map((p) => p.rating))
+  return average(bestXI(team).map((p) => p.rating))
 }
 
-// Knuth Poisson sampler.
+// ── Match maths ──────────────────────────────────────────────────────────────
 function poisson(lambda) {
   const L = Math.exp(-lambda)
   let k = 0
   let p = 1
-  do {
-    k++
-    p *= Math.random()
-  } while (p > L)
+  do { k++; p *= Math.random() } while (p > L)
   return k - 1
 }
 
-// Single match: returns [homeGoals, awayGoals].
 function playMatch(strHome, strAway, neutral = false) {
-  const K = 0.06 // goals per rating point of superiority
+  const K = 0.06
   const BASE = 1.32
   const homeBonus = neutral ? 0 : 0.35
   const diff = strHome - strAway
@@ -43,58 +43,68 @@ function playMatch(strHome, strAway, neutral = false) {
   return [poisson(expH), poisson(expA)]
 }
 
-function clamp(v, lo, hi) {
-  return Math.max(lo, Math.min(hi, v))
+// Classic shootout: five kicks each, then sudden death.
+function shootout(strA, strB) {
+  const pa = clamp(0.76 + (strA - strB) * 0.004, 0.6, 0.92)
+  const pb = clamp(0.76 + (strB - strA) * 0.004, 0.6, 0.92)
+  let a = 0, b = 0
+  for (let i = 0; i < 5; i++) {
+    if (Math.random() < pa) a++
+    if (Math.random() < pb) b++
+  }
+  while (a === b) {
+    const sa = Math.random() < pa
+    const sb = Math.random() < pb
+    if (sa) a++
+    if (sb) b++
+  }
+  return { a, b, winnerA: a > b }
 }
 
-// Weighted coin flip for shootouts — stronger side slightly favoured.
-function shootoutWinnerIsA(strA, strB) {
-  const pA = 0.5 + clamp((strA - strB) * 0.012, -0.18, 0.18)
-  return Math.random() < pA
+// ── Goalscorer attribution ───────────────────────────────────────────────────
+const ATTACK_WEIGHT = {
+  ST: 10, CF: 9, LW: 7, RW: 7, CAM: 6, LM: 3.2, RM: 3.2, CM: 2.4, CDM: 1,
+  LWB: 1.2, RWB: 1.2, LB: 0.9, RB: 0.9, CB: 0.5, SW: 0.5, GK: 0.03,
+}
+function scorerWeight(p) {
+  const base = Math.max(...p.positions.map((pos) => ATTACK_WEIGHT[pos] ?? 1))
+  return base * Math.pow(p.rating / 78, 2)
+}
+function weightedSample(items, weights) {
+  const total = weights.reduce((s, w) => s + w, 0)
+  let r = Math.random() * total
+  for (let i = 0; i < items.length; i++) {
+    r -= weights[i]
+    if (r <= 0) return items[i]
+  }
+  return items[items.length - 1]
+}
+function attributeGoals(lineup, count) {
+  if (count <= 0 || !lineup.length) return []
+  const weights = lineup.map(scorerWeight)
+  const tally = new Map()
+  for (let i = 0; i < count; i++) {
+    const name = weightedSample(lineup, weights).name
+    tally.set(name, (tally.get(name) || 0) + 1)
+  }
+  return [...tally.entries()].map(([name, c]) => ({ name, count: c }))
 }
 
-function blankRow(team, strength) {
-  return { club: team.club, league: team.league, strength, P: 0, W: 0, D: 0, L: 0, GF: 0, GA: 0, Pts: 0 }
-}
-
-function applyResult(row, gf, ga) {
-  row.P++
-  row.GF += gf
-  row.GA += ga
-  if (gf > ga) { row.W++; row.Pts += 3 } else if (gf === ga) { row.D++; row.Pts += 1 } else row.L++
+// ── Records ──────────────────────────────────────────────────────────────────
+function makeRecord(stage, oppTeam, venue, gf, ga, userXI, oppXI, extra = {}) {
+  return {
+    stage,
+    opponent: { club: oppTeam.club, edition: oppTeam.edition, league: oppTeam.league, code: clubCode(oppTeam.club) },
+    venue, // 'H' | 'A' | 'N'
+    gf, ga,
+    result: gf > ga ? 'W' : gf === ga ? 'D' : 'L',
+    scorers: attributeGoals(userXI, gf),
+    conceded: attributeGoals(oppXI, ga),
+    ...extra,
+  }
 }
 
 // ── Opponent selection ───────────────────────────────────────────────────────
-function pickGroupOpponents(userTeam, pool, strengthOf) {
-  const userLeague = userTeam.league
-  const byLeague = {}
-  for (const t of pool) {
-    if (t.club === userTeam.club) continue
-    if (t.league === userLeague) continue
-    ;(byLeague[t.league] ||= []).push(t)
-  }
-  const leagues = shuffle(Object.keys(byLeague)).slice(0, 3)
-  // Fallback: if fewer than 3 other leagues exist, allow repeats by league.
-  const chosen = []
-  for (const lg of leagues) chosen.push(pickRandom(byLeague[lg]))
-  while (chosen.length < 3) {
-    const others = pool.filter((t) => t.club !== userTeam.club && !chosen.includes(t))
-    if (!others.length) break
-    chosen.push(pickRandom(others))
-  }
-  return chosen.map((t) => ({ team: t, strength: strengthOf(t) }))
-}
-
-function pickKnockoutOpponents(used, pool, strengthOf, count) {
-  let avail = pool.filter((t) => !used.has(t.club))
-  if (avail.length < count) avail = pool.filter((t) => !used.has(t.club) || true)
-  const picked = shuffle(avail).slice(0, count).map((t) => ({ team: t, strength: strengthOf(t) }))
-  // Escalate drama: strongest opponent saved for the latest round.
-  picked.sort((a, b) => a.strength - b.strength)
-  return picked
-}
-
-// ── Helpers ──────────────────────────────────────────────────────────────────
 function shuffle(arr) {
   const a = [...arr]
   for (let i = a.length - 1; i > 0; i--) {
@@ -103,145 +113,187 @@ function shuffle(arr) {
   }
   return a
 }
-const pickRandom = (arr) => arr[Math.floor(Math.random() * arr.length)]
+const pick = (arr) => arr[Math.floor(Math.random() * arr.length)]
+
+function pickGroupOpponents(userTeam, pool, strengthOf) {
+  const byLeague = {}
+  for (const t of pool) {
+    if (t.club === userTeam.club) continue
+    if (t.league === userTeam.league) continue
+    ;(byLeague[t.league] ||= []).push(t)
+  }
+  const leagues = shuffle(Object.keys(byLeague)).slice(0, 3)
+  const chosen = leagues.map((lg) => pick(byLeague[lg]))
+  while (chosen.length < 3) {
+    const others = pool.filter((t) => t.club !== userTeam.club && !chosen.includes(t))
+    if (!others.length) break
+    chosen.push(pick(others))
+  }
+  return chosen.map((t) => ({ team: t, strength: strengthOf(t), xi: bestXI(t) }))
+}
+
+// Escalating difficulty: each round draws nearer the top of the strength ladder.
+function pickKnockoutOpponents(userTeam, usedClubs, pool, strengthOf) {
+  const avail = pool
+    .filter((t) => t.club !== userTeam.club && !usedClubs.has(t.club))
+    .map((t) => ({ team: t, strength: strengthOf(t) }))
+    .sort((a, b) => a.strength - b.strength)
+  if (!avail.length) return []
+  const percentiles = [0.35, 0.58, 0.78, 0.95] // R16, QF, SF, Final
+  const used = new Set()
+  const out = []
+  for (const pc of percentiles) {
+    let idx = Math.round(pc * (avail.length - 1)) + (Math.floor(Math.random() * 3) - 1)
+    idx = clamp(idx, 0, avail.length - 1)
+    // nudge off collisions
+    let guard = 0
+    while (used.has(idx) && guard++ < avail.length) idx = clamp(idx + 1, 0, avail.length - 1)
+    used.add(idx)
+    const o = avail[idx]
+    out.push({ team: o.team, strength: o.strength, xi: bestXI(o.team) })
+  }
+  return out
+}
 
 // ── Group stage ──────────────────────────────────────────────────────────────
-function runGroup(userTeam, userStrength, opponents) {
-  const entries = [{ team: userTeam, strength: userStrength, isUser: true }, ...opponents.map((o) => ({ team: o.team, strength: o.strength }))]
-  const rows = entries.map((e) => blankRow(e.team, e.strength))
+function runGroup(userTeam, userXI, userStrength, opponents) {
+  const entries = [
+    { team: userTeam, strength: userStrength, xi: userXI, isUser: true },
+    ...opponents.map((o) => ({ team: o.team, strength: o.strength, xi: o.xi })),
+  ]
+  const rows = entries.map((e) => ({
+    club: e.team.club, edition: e.team.edition, league: e.team.league,
+    P: 0, W: 0, D: 0, L: 0, GF: 0, GA: 0, Pts: 0,
+  }))
   const rowOf = (club) => rows.find((r) => r.club === club)
-  const userMatches = []
+  const apply = (row, gf, ga) => {
+    row.P++; row.GF += gf; row.GA += ga
+    if (gf > ga) { row.W++; row.Pts += 3 } else if (gf === ga) { row.D++; row.Pts++ } else row.L++
+  }
 
-  // Double round-robin: every ordered pair plays once (home team = first).
+  const userMatches = []
   for (let i = 0; i < entries.length; i++) {
     for (let j = 0; j < entries.length; j++) {
       if (i === j) continue
       const home = entries[i]
       const away = entries[j]
       const [hg, ag] = playMatch(home.strength, away.strength)
-      applyResult(rowOf(home.team.club), hg, ag)
-      applyResult(rowOf(away.team.club), ag, hg)
-      if (home.isUser) userMatches.push({ opponent: away.team.club, venue: 'H', gf: hg, ga: ag })
-      if (away.isUser) userMatches.push({ opponent: home.team.club, venue: 'A', gf: ag, ga: hg })
+      apply(rowOf(home.team.club), hg, ag)
+      apply(rowOf(away.team.club), ag, hg)
+      if (home.isUser) userMatches.push(makeRecord('GROUPS', away.team, 'H', hg, ag, home.xi, away.xi))
+      if (away.isUser) userMatches.push(makeRecord('GROUPS', home.team, 'A', ag, hg, away.xi, home.xi))
     }
   }
-
   rows.sort((a, b) => b.Pts - a.Pts || (b.GF - b.GA) - (a.GF - a.GA) || b.GF - a.GF || Math.random() - 0.5)
   const userRank = rows.findIndex((r) => r.club === userTeam.club) + 1
   return { rows, userRank, qualified: userRank <= 2, userMatches }
 }
 
-// ── Two-legged tie ───────────────────────────────────────────────────────────
-function runTwoLegged(userStrength, opp, firstLegHome) {
-  // leg order: firstLegHome === true → user hosts leg 1.
-  const legs = []
+// ── Two-legged tie (aggregate → away goals → penalties) ───────────────────────
+function runTie(stage, userTeam, userXI, userStrength, opp, firstLegHome) {
   const order = firstLegHome ? ['H', 'A'] : ['A', 'H']
-  let aggFor = 0
-  let aggAgainst = 0
-  for (const venue of order) {
+  const matches = []
+  let aggFor = 0, aggAgainst = 0, userAwayGoals = 0, oppAwayGoals = 0
+  order.forEach((venue, idx) => {
     const userHome = venue === 'H'
-    const [hg, ag] = userHome
-      ? playMatch(userStrength, opp.strength)
-      : playMatch(opp.strength, userStrength)
+    const [hg, ag] = userHome ? playMatch(userStrength, opp.strength) : playMatch(opp.strength, userStrength)
     const gf = userHome ? hg : ag
     const ga = userHome ? ag : hg
-    aggFor += gf
-    aggAgainst += ga
-    legs.push({ venue, gf, ga })
-  }
-  let advanced = aggFor > aggAgainst
-  let decidedOn = 'aggregate'
-  if (aggFor === aggAgainst) {
-    advanced = shootoutWinnerIsA(userStrength, opp.strength)
+    aggFor += gf; aggAgainst += ga
+    if (!userHome) userAwayGoals += gf // user's goals away
+    if (userHome) oppAwayGoals += ga // opponent's goals at user's home = their away goals
+    matches.push(makeRecord(stage, opp.team, venue, gf, ga, userXI, opp.xi, { leg: idx + 1 }))
+  })
+
+  let advanced, decidedOn, pens = null
+  if (aggFor !== aggAgainst) {
+    advanced = aggFor > aggAgainst
+    decidedOn = 'aggregate'
+  } else if (userAwayGoals !== oppAwayGoals) {
+    advanced = userAwayGoals > oppAwayGoals
+    decidedOn = 'away goals'
+  } else {
+    const s = shootout(userStrength, opp.strength)
+    advanced = s.winnerA
     decidedOn = 'penalties'
+    pens = { user: s.a, opp: s.b }
   }
-  return { legs, aggFor, aggAgainst, advanced, decidedOn }
+  return { matches, aggFor, aggAgainst, advanced, decidedOn, pens }
 }
 
-// ── Final ────────────────────────────────────────────────────────────────────
-function runFinal(userStrength, opp) {
+function runFinal(userTeam, userXI, userStrength, opp) {
   let [gf, ga] = playMatch(userStrength, opp.strength, true)
-  let decidedOn = 'normal time'
+  let decidedOn = 'normal time', pens = null
   let won = gf > ga
   if (gf === ga) {
-    won = shootoutWinnerIsA(userStrength, opp.strength)
+    const s = shootout(userStrength, opp.strength)
+    won = s.winnerA
     decidedOn = 'penalties'
+    pens = { user: s.a, opp: s.b }
   }
-  return { gf, ga, won, decidedOn }
+  const record = makeRecord('FINAL', opp.team, 'N', gf, ga, userXI, opp.xi, { pens, decidedOn, advanced: won })
+  return { record, won }
 }
 
-const ROUND_NAMES = ['Round of 16', 'Quarter-final', 'Semi-final', 'Final']
+const KO_STAGES = ['ROUND OF 16', 'QUARTERS', 'SEMIS', 'FINAL']
 
 // ── Orchestrator ─────────────────────────────────────────────────────────────
 export function runTournament(userTeam, userXI, pool) {
   const userStrength = average(userXI.map((p) => p.rating))
-  const strengthCache = new Map()
+  const cache = new Map()
   const strengthOf = (t) => {
-    if (!strengthCache.has(t.club)) strengthCache.set(t.club, bestXIStrength(t))
-    return strengthCache.get(t.club)
+    if (!cache.has(t.club + t.edition)) cache.set(t.club + t.edition, bestXIStrength(t))
+    return cache.get(t.club + t.edition)
   }
 
-  const opponents = pickGroupOpponents(userTeam, pool, strengthOf)
-  const group = runGroup(userTeam, userStrength, opponents)
+  const groupOpps = pickGroupOpponents(userTeam, pool, strengthOf)
+  const group = runGroup(userTeam, userXI, userStrength, groupOpps)
 
-  const totals = { GF: 0, GA: 0, W: 0, D: 0, L: 0, P: 0 }
-  const tallyMatch = (gf, ga) => {
-    totals.GF += gf; totals.GA += ga; totals.P++
-    if (gf > ga) totals.W++; else if (gf === ga) totals.D++; else totals.L++
+  const totals = { P: 0, W: 0, D: 0, L: 0, GF: 0, GA: 0 }
+  const tally = (rec) => {
+    totals.P++; totals.GF += rec.gf; totals.GA += rec.ga
+    if (rec.result === 'W') totals.W++; else if (rec.result === 'D') totals.D++; else totals.L++
   }
-  group.userMatches.forEach((m) => tallyMatch(m.gf, m.ga))
+  group.userMatches.forEach(tally)
 
-  const rounds = []
-  let exitRound = group.qualified ? null : 'Group stage'
+  const matches = [...group.userMatches]
+  const ties = []
+  let exitRound = group.qualified ? null : 'group stage'
   let champion = false
 
   if (group.qualified) {
-    const used = new Set([userTeam.club, ...opponents.map((o) => o.team.club)])
-    const koOpponents = pickKnockoutOpponents(used, pool, strengthOf, 4)
+    const used = new Set([userTeam.club, ...groupOpps.map((o) => o.team.club)])
+    const koOpps = pickKnockoutOpponents(userTeam, used, pool, strengthOf)
 
-    for (let r = 0; r < ROUND_NAMES.length; r++) {
-      const name = ROUND_NAMES[r]
-      const opp = koOpponents[r] || pickKnockoutOpponents(used, pool, strengthOf, 1)[0]
+    for (let r = 0; r < KO_STAGES.length; r++) {
+      const stage = KO_STAGES[r]
+      const opp = koOpps[r] || pickKnockoutOpponents(userTeam, used, pool, strengthOf)[0]
+      if (!opp) break
       used.add(opp.team.club)
 
-      if (name === 'Final') {
-        const res = runFinal(userStrength, opp)
-        tallyMatch(res.gf, res.ga)
-        rounds.push({
-          name, opponent: opp.team.club, opponentLeague: opp.team.league,
-          single: { gf: res.gf, ga: res.ga }, decidedOn: res.decidedOn, advanced: res.won,
-        })
-        if (res.won) { champion = true } else { exitRound = name }
+      if (stage === 'FINAL') {
+        const { record, won } = runFinal(userTeam, userXI, userStrength, opp)
+        tally(record)
+        matches.push(record)
+        ties.push({ stage, opponent: record.opponent, advanced: won, decidedOn: record.decidedOn, pens: record.pens, single: true })
+        if (won) champion = true; else exitRound = 'final'
         break
       }
 
-      // Leg order: group winners host leg 2 (first leg away); runners-up host leg 1.
       const firstLegHome = r === 0 ? group.userRank === 2 : Math.random() < 0.5
-      const tie = runTwoLegged(userStrength, opp, firstLegHome)
-      tie.legs.forEach((l) => tallyMatch(l.gf, l.ga))
-      rounds.push({
-        name, opponent: opp.team.club, opponentLeague: opp.team.league,
-        legs: tie.legs, aggFor: tie.aggFor, aggAgainst: tie.aggAgainst,
-        decidedOn: tie.decidedOn, advanced: tie.advanced,
-      })
-      if (!tie.advanced) { exitRound = name; break }
+      const tie = runTie(stage, userTeam, userXI, userStrength, opp, firstLegHome)
+      tie.matches.forEach((m) => { tally(m); matches.push(m) })
+      ties.push({ stage, opponent: tie.matches[0].opponent, advanced: tie.advanced, decidedOn: tie.decidedOn, pens: tie.pens, aggFor: tie.aggFor, aggAgainst: tie.aggAgainst })
+      if (!tie.advanced) { exitRound = stage.toLowerCase(); break }
     }
   }
 
-  const reachedFinal = rounds.some((r) => r.name === 'Final')
+  const reachedFinal = ties.some((t) => t.stage === 'FINAL')
   let verdict
   if (champion) verdict = 'Champions of Europe'
   else if (reachedFinal) verdict = 'Runners-up'
-  else if (exitRound === 'Group stage') verdict = 'Out in the group stage'
+  else if (exitRound === 'group stage') verdict = 'Out in the group stage'
   else verdict = `Out in the ${exitRound}`
 
-  return {
-    userStrength,
-    group,
-    rounds,
-    champion,
-    exitRound: champion ? null : exitRound,
-    verdict,
-    totals,
-  }
+  return { userStrength, group, matches, ties, champion, exitRound: champion ? null : exitRound, verdict, totals }
 }

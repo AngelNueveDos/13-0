@@ -12,6 +12,14 @@ export function initials(name) {
   return (first + last).toUpperCase()
 }
 
+// Short 3-letter club code for match rows (e.g. "Bayern München" → "BAY").
+const CLUB_PREFIXES = ['FC', 'AC', 'AS', 'CF', 'SC', 'CD', 'SS', 'SV', 'RC']
+export function clubCode(club) {
+  const words = club.split(/\s+/).filter((w) => !CLUB_PREFIXES.includes(w.toUpperCase()))
+  const base = (words[0] || club).replace(/[^A-Za-zÀ-ÿ]/g, '')
+  return base.slice(0, 3).toUpperCase()
+}
+
 // Surname-ish label for the pitch token.
 export function shortName(name) {
   const parts = name.split(/\s+/).filter(Boolean)
