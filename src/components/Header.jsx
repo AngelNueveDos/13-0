@@ -1,4 +1,8 @@
-export default function Header({ onHowTo, onReplay }) {
+import { useI18n } from '../i18n'
+import LanguageSwitcher from './LanguageSwitcher'
+
+export default function Header({ onHowTo, onReplay, onFeedback }) {
+  const { t } = useI18n()
   return (
     <header className="sticky top-0 z-30 border-b border-white/5 bg-navy-deep/70 backdrop-blur-md">
       <div className="mx-auto flex max-w-6xl items-center justify-between px-5 py-3.5">
@@ -13,12 +17,9 @@ export default function Header({ onHowTo, onReplay }) {
         </button>
 
         <nav className="flex items-center gap-2 sm:gap-3">
-          <button onClick={onHowTo} className="btn-ghost !px-4 !py-2 text-xs sm:text-sm">
-            How to play
-          </button>
-          <button onClick={onReplay} className="btn-ghost !px-4 !py-2 text-xs sm:text-sm">
-            Replay
-          </button>
+          <button onClick={onHowTo} className="btn-ghost !px-4 !py-2 text-xs sm:text-sm">{t('header.howToPlay')}</button>
+          <button onClick={onFeedback} className="btn-ghost !px-4 !py-2 text-xs sm:text-sm">{t('header.feedback')}</button>
+          <LanguageSwitcher />
         </nav>
       </div>
     </header>

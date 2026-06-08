@@ -1,48 +1,26 @@
-const STEPS = [
-  {
-    n: '01',
-    title: 'Shape & draw',
-    body: 'Choose a formation, then roll the dice to be handed one of the era’s great clubs at random.',
-  },
-  {
-    n: '02',
-    title: 'Build your eleven',
-    body: 'Tap a player from the squad, then tap a glowing position to place them there. Tap a token to remove it.',
-  },
-  {
-    n: '03',
-    title: 'Win Europe',
-    body: 'Simulate a six-match group, then two-legged knockouts and a one-off final. Top two of the group advance — a stronger XI tilts the odds your way.',
-  },
-]
+import { useI18n } from '../i18n'
 
 export default function HowToModal({ open, onClose }) {
+  const { t } = useI18n()
   if (!open) return null
+  const steps = [
+    { n: '01', title: t('howto.s1t'), body: t('howto.s1b') },
+    { n: '02', title: t('howto.s2t'), body: t('howto.s2b') },
+    { n: '03', title: t('howto.s3t'), body: t('howto.s3b') },
+  ]
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-navy-deep/80 p-4 backdrop-blur-sm"
-      onClick={onClose}
-    >
-      <div
-        className="panel w-full max-w-lg animate-fadeUp p-7"
-        onClick={(e) => e.stopPropagation()}
-      >
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-navy-deep/80 p-4 backdrop-blur-sm" onClick={onClose}>
+      <div className="panel w-full max-w-lg animate-fadeUp p-7" onClick={(e) => e.stopPropagation()}>
         <div className="mb-5 flex items-center justify-between">
           <div>
-            <p className="eyebrow">The ritual</p>
-            <h2 className="font-display text-2xl text-cream">How to play</h2>
+            <p className="eyebrow">{t('howto.eyebrow')}</p>
+            <h2 className="font-display text-2xl text-cream">{t('howto.title')}</h2>
           </div>
-          <button
-            onClick={onClose}
-            className="flex h-8 w-8 items-center justify-center rounded-full border border-white/10 text-bluegray transition hover:border-gold/50 hover:text-gold"
-            aria-label="Close"
-          >
-            ✕
-          </button>
+          <button onClick={onClose} className="flex h-8 w-8 items-center justify-center rounded-full border border-white/10 text-bluegray transition hover:border-gold/50 hover:text-gold" aria-label="Close">✕</button>
         </div>
 
         <ol className="space-y-4">
-          {STEPS.map((s) => (
+          {steps.map((s) => (
             <li key={s.n} className="flex gap-4">
               <span className="font-display text-xl text-gold/60">{s.n}</span>
               <div>
@@ -53,9 +31,7 @@ export default function HowToModal({ open, onClose }) {
           ))}
         </ol>
 
-        <button onClick={onClose} className="btn-gold mt-7 w-full">
-          Understood
-        </button>
+        <button onClick={onClose} className="btn-gold mt-7 w-full">{t('howto.understood')}</button>
       </div>
     </div>
   )

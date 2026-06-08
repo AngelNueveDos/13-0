@@ -1,5 +1,5 @@
-import { initials, shortName } from '../lib/util'
-import { labelFor, playerFitsRole } from '../data/formations'
+import { shortName } from '../lib/util'
+import { labelFor } from '../data/formations'
 
 function FieldLines() {
   const stroke = 'rgba(244,241,232,0.32)'
@@ -39,7 +39,7 @@ function Token({ slot, player, active, eligible, onClick }) {
     >
       <span
         className={[
-          'relative flex h-11 w-11 items-center justify-center rounded-full transition-all duration-300 sm:h-[3.25rem] sm:w-[3.25rem]',
+          'relative flex h-12 w-12 items-center justify-center rounded-full transition-all duration-300 sm:h-16 sm:w-16',
           'group-hover:-translate-y-0.5',
           player
             ? 'border border-gold/70 bg-gradient-to-b from-navy-700 to-navy-deep text-cream shadow-gold'
@@ -49,24 +49,25 @@ function Token({ slot, player, active, eligible, onClick }) {
             : !player
               ? 'border-gold/30 group-hover:border-gold/70'
               : '',
+          player && eligible ? 'ring-2 ring-gold/70 ring-offset-2 ring-offset-navy animate-pulseGlow' : '',
           active ? 'ring-2 ring-gold ring-offset-2 ring-offset-navy' : '',
         ].join(' ')}
       >
         {player ? (
           <>
-            <span className="font-display text-lg font-semibold leading-none">{player.rating}</span>
-            <span className="absolute -right-1.5 -top-1.5 flex h-4 items-center justify-center rounded-full bg-gold px-1 font-display text-[0.55rem] font-bold uppercase leading-none text-navy-deep shadow">
+            <span className="font-display text-xl font-semibold leading-none sm:text-2xl">{player.rating}</span>
+            <span className="absolute -right-1.5 -top-1.5 flex h-5 items-center justify-center rounded-full bg-gold px-1.5 font-display text-[0.62rem] font-bold uppercase leading-none text-navy-deep shadow">
               {labelFor(slot.role)}
             </span>
           </>
         ) : (
-          <span className="font-display text-xs tracking-wide">{labelFor(slot.role)}</span>
+          <span className="font-display text-sm tracking-wide">{labelFor(slot.role)}</span>
         )}
       </span>
 
       <span
         className={[
-          'mt-1 max-w-[5.5rem] truncate rounded px-1.5 py-0.5 text-center font-display text-[0.62rem] uppercase tracking-wider transition-colors',
+          'mt-1.5 max-w-[6.5rem] truncate rounded px-1.5 py-0.5 text-center font-display text-xs uppercase tracking-wider transition-colors sm:text-sm',
           player ? 'bg-navy-deep/80 text-gold' : 'text-bluegray/60',
         ].join(' ')}
       >
@@ -76,30 +77,26 @@ function Token({ slot, player, active, eligible, onClick }) {
   )
 }
 
-export default function Pitch({ slots, assignments, armedPlayer, activeSlotId, onSlotClick }) {
+export default function Pitch({ slots, assignments, eligibleSlotIds, activeSlotId, onSlotClick }) {
   return (
     <div
-      className="grass-stripes relative mx-auto aspect-[3/4] w-full max-w-md overflow-hidden rounded-2xl border border-white/5"
+      className="grass-stripes relative mx-auto aspect-[3/4] w-full max-w-lg overflow-hidden rounded-2xl border border-white/5"
       style={{
         background: 'linear-gradient(180deg, #0f3d2a 0%, #0c3122 50%, #0a2a1d 100%)',
         boxShadow: '0 18px 50px -20px rgba(0,0,0,0.7), inset 0 0 80px rgba(0,0,0,0.35)',
       }}
     >
       <FieldLines />
-      {slots.map((slot) => {
-        const player = assignments[slot.id]
-        const eligible = !player && !!armedPlayer && playerFitsRole(armedPlayer, slot.role)
-        return (
-          <Token
-            key={slot.id}
-            slot={slot}
-            player={player}
-            eligible={eligible}
-            active={activeSlotId === slot.id}
-            onClick={() => onSlotClick(slot)}
-          />
-        )
-      })}
+      {slots.map((slot) => (
+        <Token
+          key={slot.id}
+          slot={slot}
+          player={assignments[slot.id]}
+          eligible={eligibleSlotIds?.has(slot.id)}
+          active={activeSlotId === slot.id}
+          onClick={() => onSlotClick(slot)}
+        />
+      ))}
     </div>
   )
 }
